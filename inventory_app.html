@@ -104,10 +104,9 @@
 
   .td-pcode { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
   .td-name  { font-size: 15px; }
-  .td-qty   { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600; color: var(--success); }
-  .td-time  { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .td-qty   { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600; color: var(--success); text-align: center; }
 
-  /* 編集入力 */
+  /* 編集入力（製品名） */
   .editable {
     background: none; border: 1px solid transparent; outline: none;
     color: var(--text); font-family: 'Noto Sans JP', sans-serif;
@@ -115,10 +114,53 @@
     padding: 3px 5px; border-radius: 5px; transition: background .15s, border-color .15s;
   }
   .editable:focus { background: var(--surf2); border-color: var(--accent); cursor: text; }
-  .editable-qty {
+
+  /* 数量ボタン（電卓入力） */
+  .qty-btn {
     font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600;
-    color: var(--success); width: 62px; text-align: center;
+    color: var(--success); background: none; border: 1px solid transparent;
+    border-radius: 6px; padding: 3px 10px; cursor: pointer; transition: all .15s;
+    min-width: 48px; text-align: center;
   }
+  .qty-btn:hover { background: var(--surf2); border-color: var(--accent); }
+
+  /* 電卓モーダル */
+  .calc-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); z-index: 300;
+    align-items: flex-end; justify-content: center;
+    padding-bottom: 20px;
+  }
+  .calc-overlay.open { display: flex; }
+  .calc-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px 18px 14px 14px; padding: 18px 18px 14px;
+    width: 100%; max-width: 320px;
+  }
+  .calc-display {
+    background: var(--surf2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600;
+    color: var(--success); text-align: right; letter-spacing: .04em;
+    min-height: 54px; line-height: 1;
+  }
+  .calc-label {
+    font-size: 10px; color: var(--muted); margin-bottom: 2px;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .calc-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .calc-key {
+    padding: 14px 0; border-radius: 10px; border: none; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600;
+    background: var(--surf2); color: var(--text); transition: all .12s;
+  }
+  .calc-key:active { transform: scale(.94); }
+  .calc-key.zero   { grid-column: span 2; }
+  .calc-key.del    { background: rgba(248,113,113,.15); color: var(--danger); }
+  .calc-key.ok     { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .calc-key.cancel { background: var(--surf2); color: var(--muted); font-size: 13px; font-family: 'Noto Sans JP', sans-serif; }
 
   .del-btn {
     background: none; border: none; cursor: pointer; color: var(--muted);
@@ -236,7 +278,6 @@
           <th>製品コード</th>
           <th>製品名</th>
           <th>数量</th>
-          <th>時刻</th>
           <th></th>
         </tr>
       </thead>
@@ -283,6 +324,29 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 電卓モーダル -->
+<div class="calc-overlay" id="calcOverlay">
+  <div class="calc-modal">
+    <div class="calc-label" id="calcLabel">数量を入力</div>
+    <div class="calc-display" id="calcDisplay">1</div>
+    <div class="calc-grid">
+      <button class="calc-key" onclick="calcKey('7')">7</button>
+      <button class="calc-key" onclick="calcKey('8')">8</button>
+      <button class="calc-key" onclick="calcKey('9')">9</button>
+      <button class="calc-key" onclick="calcKey('4')">4</button>
+      <button class="calc-key" onclick="calcKey('5')">5</button>
+      <button class="calc-key" onclick="calcKey('6')">6</button>
+      <button class="calc-key" onclick="calcKey('1')">1</button>
+      <button class="calc-key" onclick="calcKey('2')">2</button>
+      <button class="calc-key" onclick="calcKey('3')">3</button>
+      <button class="calc-key del" onclick="calcKey('del')">⌫</button>
+      <button class="calc-key zero" onclick="calcKey('0')">0</button>
+      <button class="calc-key cancel" onclick="closeCalc()">キャンセル</button>
+      <button class="calc-key ok" style="grid-column:span 2" onclick="calcConfirm()">確定</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -427,12 +491,14 @@ function startScan() {
     }
     let hit = 0;
     res.data.codes.forEach(function(c) {
-      const m = DB_BY_CODE[String(c.code).trim()];
+      const raw = String(c.code).trim();
+      const m = DB_BY_CODE[raw];
       if (m) {
         addRecord(m.codeNum, m.prodCode, m.name, 1, c.datetime);
         hit++;
       } else {
-        addRecord(c.code, '—', '未登録: ' + c.code, 1, c.datetime);
+        // デバッグ：未登録の場合は実際のコード値を記録
+        addRecord(raw, '—', '未登録[' + raw + ']', 1, c.datetime);
         hit++;
       }
     });
@@ -582,7 +648,41 @@ function updateName(id, val) {
 }
 
 // ══════════════════════════════════════════════════════
-//  削除 / クリア
+//  電卓（数量入力）
+// ══════════════════════════════════════════════════════
+let calcTargetId = null;
+let calcValue    = '1';
+
+function openCalc(id) {
+  calcTargetId = id;
+  const r = records.find(r => r.id === id);
+  calcValue = String(r ? r.qty : 1);
+  document.getElementById('calcDisplay').textContent = calcValue;
+  document.getElementById('calcLabel').textContent = r ? r.name + '　数量' : '数量を入力';
+  document.getElementById('calcOverlay').classList.add('open');
+}
+function closeCalc() {
+  document.getElementById('calcOverlay').classList.remove('open');
+  calcTargetId = null;
+}
+function calcKey(k) {
+  if (k === 'del') {
+    calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
+  } else {
+    if (calcValue === '0') calcValue = k;
+    else calcValue += k;
+    if (calcValue.length > 5) calcValue = calcValue.slice(0, 5);
+  }
+  document.getElementById('calcDisplay').textContent = calcValue || '0';
+}
+function calcConfirm() {
+  const q = parseInt(calcValue) || 1;
+  if (calcTargetId !== null) {
+    const r = records.find(r => r.id === calcTargetId);
+    if (r) { r.qty = q; save(); render(); }
+  }
+  closeCalc();
+}
 // ══════════════════════════════════════════════════════
 function deleteRecord(id) {
   records = records.filter(r => r.id !== id);
@@ -603,7 +703,7 @@ function render() {
 
   const tbody = document.getElementById('tbody');
   if (!records.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">
       <div class="empty-icon">📷</div>
       <div class="empty-text">カメレオンコードをスキャンするか<br>手動入力で追加してください</div>
     </div></td></tr>`;
@@ -617,10 +717,8 @@ function render() {
           onchange="updateName(${r.id}, this.value)" title="タップして編集" />
       </td>
       <td class="td-qty">
-        <input class="editable editable-qty" type="number" min="1" value="${r.qty}"
-          onchange="updateQty(${r.id}, this.value)" title="タップして編集" />
+        <button class="qty-btn" onclick="openCalc(${r.id})">${r.qty}</button>
       </td>
-      <td class="td-time">${r.datetime || '—'}</td>
       <td><button class="del-btn" onclick="deleteRecord(${r.id})">✕</button></td>
     </tr>`).join('');
 }
