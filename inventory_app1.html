@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>棚卸管理 | IroatoReader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg:      #0f1117;
+    --surface: #1a1d27;
+    --surf2:   #222534;
+    --border:  #2e3245;
+    --accent:  #4f9eff;
+    --accent2: #7c5cfc;
+    --success: #34d399;
+    --warn:    #fbbf24;
+    --danger:  #f87171;
+    --text:    #e8eaf0;
+    --muted:   #8b90a7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; }
+
+  /* ── ヘッダー ── */
+  header {
+    background: linear-gradient(135deg, #1a1d27, #1e213a);
+    border-bottom: 1px solid var(--border);
+    padding: 11px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 9px; }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .logo-text { font-size: 14px; font-weight: 700; }
+  .logo-sub  { font-size: 9px; color: var(--muted); letter-spacing: .08em; }
+  .hstats { display: flex; gap: 8px; }
+  .chip {
+    background: var(--surf2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: 11px; display: flex; align-items: center; gap: 5px;
+  }
+  .chip .v { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--accent); }
+
+  /* ── メイン ── */
+  main { padding: 12px 12px; max-width: 680px; margin: 0 auto; }
+
+  /* ── スキャンエリア ── */
+  .scan-area {
+    background: linear-gradient(135deg, #1a1d27, #1e213a);
+    border: 1px solid var(--border); border-radius: 11px;
+    padding: 11px 13px; margin-bottom: 12px;
+  }
+  .scan-title {
+    font-size: 10px; color: var(--muted); letter-spacing: .08em;
+    text-transform: uppercase; margin-bottom: 9px; text-align: center;
+  }
+  .scan-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .btn {
+    padding: 10px 11px; border-radius: 9px; border: none; cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; box-shadow: 0 4px 14px rgba(79,158,255,.3);
+  }
+  .btn-secondary { background: var(--surf2); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-danger { background: var(--surf2); border: 1px solid var(--danger); color: var(--danger); }
+
+  /* ── テーブル ── */
+  .table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 13px; overflow: hidden; margin-bottom: 12px;
+  }
+  .table-hd {
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    font-size: 10px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .table-hd .cnt { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    padding: 8px 12px; font-size: 10px; color: var(--muted);
+    text-align: left; font-weight: 500; border-bottom: 1px solid var(--border);
+    background: var(--surf2); text-transform: uppercase; letter-spacing: .05em;
+  }
+  td {
+    padding: 11px 12px; font-size: 15px;
+    border-bottom: 1px solid rgba(46,50,69,.5); vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .td-pcode { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+  .td-name  { font-size: 15px; }
+  .td-qty   { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600; color: var(--success); text-align: center; }
+
+  /* 編集入力（製品名） */
+  .editable {
+    background: none; border: 1px solid transparent; outline: none;
+    color: var(--text); font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px; width: 100%; cursor: pointer;
+    padding: 3px 5px; border-radius: 5px; transition: background .15s, border-color .15s;
+  }
+  .editable:focus { background: var(--surf2); border-color: var(--accent); cursor: text; }
+
+  /* 数量ボタン（電卓入力） */
+  .qty-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600;
+    color: var(--success); background: none; border: 1px solid transparent;
+    border-radius: 6px; padding: 3px 10px; cursor: pointer; transition: all .15s;
+    min-width: 48px; text-align: center;
+  }
+  .qty-btn:hover { background: var(--surf2); border-color: var(--accent); }
+
+  /* 電卓モーダル */
+  .calc-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); z-index: 300;
+    align-items: flex-end; justify-content: center;
+    padding-bottom: 20px;
+  }
+  .calc-overlay.open { display: flex; }
+  .calc-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px 18px 14px 14px; padding: 18px 18px 14px;
+    width: 100%; max-width: 320px;
+  }
+  .calc-display {
+    background: var(--surf2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600;
+    color: var(--success); text-align: right; letter-spacing: .04em;
+    min-height: 54px; line-height: 1;
+  }
+  .calc-label {
+    font-size: 10px; color: var(--muted); margin-bottom: 2px;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .calc-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .calc-key {
+    padding: 14px 0; border-radius: 10px; border: none; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600;
+    background: var(--surf2); color: var(--text); transition: all .12s;
+  }
+  .calc-key:active { transform: scale(.94); }
+  .calc-key.zero   { grid-column: span 2; }
+  .calc-key.del    { background: rgba(248,113,113,.15); color: var(--danger); }
+  .calc-key.ok     { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .calc-key.cancel { background: var(--surf2); color: var(--muted); font-size: 13px; font-family: 'Noto Sans JP', sans-serif; }
+
+  .del-btn {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    font-size: 15px; padding: 3px 6px; border-radius: 5px; transition: all .15s;
+  }
+  .del-btn:hover { color: var(--danger); background: rgba(248,113,113,.1); }
+
+  .empty-state { padding: 44px 20px; text-align: center; color: var(--muted); }
+  .empty-icon  { font-size: 38px; margin-bottom: 10px; opacity: .5; }
+  .empty-text  { font-size: 13px; line-height: 1.8; }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+
+  /* ── トースト ── */
+  .toast {
+    position: fixed; bottom: 22px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surf2); border: 1px solid var(--border);
+    border-radius: 11px; padding: 11px 18px;
+    font-size: 13px; display: flex; align-items: center; gap: 9px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.4);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    z-index: 999; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--success); }
+  .toast.warn    { border-color: var(--warn); }
+
+  /* ── モーダル ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.75); z-index: 200;
+    align-items: flex-start; justify-content: center;
+    padding: 40px 16px 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 15px; padding: 22px;
+    width: 100%; max-width: 400px;
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 16px; }
+  .modal-label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 5px; }
+  .modal-field { margin-bottom: 13px; position: relative; }
+  .minput {
+    width: 100%;
+    background: var(--surf2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 12px;
+    color: var(--text); font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px; outline: none; transition: border-color .2s;
+  }
+  .minput:focus { border-color: var(--accent); }
+
+  /* インクリメンタルサーチ候補 */
+  .suggest-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 300;
+    background: var(--surf2); border: 1px solid var(--accent);
+    border-radius: 9px; max-height: 220px; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    margin-top: 3px;
+  }
+  .suggest-item {
+    padding: 9px 12px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 2px;
+    transition: background .1s;
+  }
+  .suggest-item:last-child { border-bottom: none; }
+  .suggest-item:hover, .suggest-item.active { background: rgba(79,158,255,.12); }
+  .suggest-pcode { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); }
+  .suggest-name  { font-size: 14px; }
+  .suggest-code  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+  .suggest-none  { padding: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+
+  .modal-actions { display: flex; gap: 7px; margin-top: 16px; }
+  .modal-actions .btn { flex: 1; }
+
+  @media (max-width: 400px) { .hstats { display: none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📦</div>
+    <div>
+      <div class="logo-text">棚卸管理</div>
+      <div class="logo-sub">INVENTORY</div>
+    </div>
+  </div>
+  <div class="hstats">
+    <div class="chip">スキャン <span class="v" id="hTotal">0</span></div>
+    <div class="chip">品目 <span class="v" id="hItems">0</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="scan-area">
+    <div class="scan-title">読み取り / 入力</div>
+    <div class="scan-btns">
+      <button class="btn btn-primary"    onclick="startScan()">🎯 カメレオンコード</button>
+      <button class="btn btn-secondary"  onclick="openModal()">✏️ 手動入力</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-hd">
+      <span>棚卸リスト</span>
+      <span class="cnt" id="rowCnt">0件</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>製品コード</th>
+          <th>製品名</th>
+          <th>数量</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="exportCSV()">📥 CSVダウンロード</button>
+    <button class="btn btn-danger"    onclick="clearAll()">🗑 全件クリア</button>
+  </div>
+</main>
+
+<!-- 手動入力モーダル -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>✏️ 商品を追加</h3>
+    <div class="modal-field">
+      <label class="modal-label">製品コードまたは製品名で検索</label>
+      <input class="minput" id="searchInput"
+        placeholder="例: XAJI0Y6DPB　または　デスクチェア"
+        autocomplete="off"
+        oninput="onSearch(this.value)"
+        onkeydown="onSearchKey(event)" />
+      <div class="suggest-list" id="suggestList" style="display:none"></div>
+    </div>
+    <div class="modal-field" id="selectedInfo" style="display:none">
+      <label class="modal-label">選択中</label>
+      <div id="selectedBox" style="
+        background:var(--surf2); border:1px solid var(--success);
+        border-radius:9px; padding:10px 13px; font-size:13px; line-height:1.7;">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">数量</label>
+      <input class="minput" id="qtyInput" type="number" value="1" min="1" style="width:100px;" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary"   onclick="addManual()" id="addBtn" disabled
+        style="opacity:.5;">追加</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 電卓モーダル -->
+<div class="calc-overlay" id="calcOverlay">
+  <div class="calc-modal">
+    <div class="calc-label" id="calcLabel">数量を入力</div>
+    <div class="calc-display" id="calcDisplay">1</div>
+    <div class="calc-grid">
+      <button class="calc-key" onclick="calcKey('7')">7</button>
+      <button class="calc-key" onclick="calcKey('8')">8</button>
+      <button class="calc-key" onclick="calcKey('9')">9</button>
+      <button class="calc-key" onclick="calcKey('4')">4</button>
+      <button class="calc-key" onclick="calcKey('5')">5</button>
+      <button class="calc-key" onclick="calcKey('6')">6</button>
+      <button class="calc-key" onclick="calcKey('1')">1</button>
+      <button class="calc-key" onclick="calcKey('2')">2</button>
+      <button class="calc-key" onclick="calcKey('3')">3</button>
+      <button class="calc-key del" onclick="calcKey('del')">⌫</button>
+      <button class="calc-key zero" onclick="calcKey('0')">0</button>
+      <button class="calc-key cancel" onclick="closeCalc()">キャンセル</button>
+      <button class="calc-key ok" style="grid-column:span 2" onclick="calcConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  内蔵マスターDB
+//  フィールド: codeNum(7桁), prodCode(半角10桁), name(全角≤20桁)
+// ══════════════════════════════════════════════════════
+const DB = [
+  {codeNum:"0000001",prodCode:"XAJI0Y6DPB",name:"デスクチェア"},
+  {codeNum:"0000002",prodCode:"HSAHXTHV3A",name:"ハイバックチェア"},
+  {codeNum:"0000003",prodCode:"3ZMF8MDD4V",name:"メッシュチェア"},
+  {codeNum:"0000004",prodCode:"30T9NT3W5U",name:"アームチェア"},
+  {codeNum:"0000005",prodCode:"ZBIKCIDKWN",name:"スタッキングチェア"},
+  {codeNum:"0000006",prodCode:"NHJ7XVG0FN",name:"バランスチェア"},
+  {codeNum:"0000007",prodCode:"9XUY41IBLJ",name:"ワークデスク"},
+  {codeNum:"0000008",prodCode:"H75LXO6QJI",name:"Ｌ字デスク"},
+  {codeNum:"0000009",prodCode:"UJV6OH9SDB",name:"昇降デスク"},
+  {codeNum:"0000010",prodCode:"DW2PCN9T84",name:"コーナーデスク"},
+  {codeNum:"0000011",prodCode:"AZYTJXEPQ8",name:"片袖デスク"},
+  {codeNum:"0000012",prodCode:"5JSG65KXVF",name:"両袖デスク"},
+  {codeNum:"0000013",prodCode:"1T2TALA753",name:"フリーアドレスデスク"},
+  {codeNum:"0000014",prodCode:"LC58DRC11E",name:"ガラスデスク"},
+  {codeNum:"0000015",prodCode:"RTJ5PHT0HL",name:"ノートＰＣスタンド"},
+  {codeNum:"0000016",prodCode:"9XPSEIMVIH",name:"３段ワゴン"},
+  {codeNum:"0000017",prodCode:"CWI64CIYHE",name:"２段ワゴン"},
+  {codeNum:"0000018",prodCode:"7UR23GDPPQ",name:"サイドワゴン"},
+  {codeNum:"0000019",prodCode:"0Y9DOM5IGQ",name:"キャビネット"},
+  {codeNum:"0000020",prodCode:"PKI7P5TB94",name:"ロッカー"},
+  {codeNum:"0000021",prodCode:"874FRHOCN9",name:"スチール書庫"},
+  {codeNum:"0000022",prodCode:"J2QP89UZFK",name:"木製書庫"},
+  {codeNum:"0000023",prodCode:"8UT0CVS4F8",name:"オープンシェルフ"},
+  {codeNum:"0000024",prodCode:"CGVYIE6IVW",name:"ファイルキャビネット"},
+  {codeNum:"0000025",prodCode:"PVS7HZIOYK",name:"４段キャビネット"},
+  {codeNum:"0000026",prodCode:"L1CQ99CHJ7",name:"２段キャビネット"},
+  {codeNum:"0000027",prodCode:"55NF4ZW9XA",name:"ホワイトボード"},
+  {codeNum:"0000028",prodCode:"3KX7EEDTJV",name:"磁気ホワイトボード"},
+  {codeNum:"0000029",prodCode:"ZHWJR64DPJ",name:"ガラスホワイトボード"},
+  {codeNum:"0000030",prodCode:"A1WJ0TPAC5",name:"ロールスクリーン"},
+  {codeNum:"0000031",prodCode:"6T4UFEL624",name:"プロジェクタースタンド"},
+  {codeNum:"0000032",prodCode:"6HID25OWF7",name:"モニターアーム"},
+  {codeNum:"0000033",prodCode:"5935A0L725",name:"デュアルモニターアーム"},
+  {codeNum:"0000034",prodCode:"3J2D54I3QK",name:"キーボードトレー"},
+  {codeNum:"0000035",prodCode:"2IAGL58KXO",name:"ケーブルトレー"},
+  {codeNum:"0000036",prodCode:"9T7E8G8JDP",name:"会議テーブル"},
+  {codeNum:"0000037",prodCode:"0LVSNUJZA7",name:"折りたたみテーブル"},
+  {codeNum:"0000038",prodCode:"TZ0YNCXLL4",name:"ネストテーブル"},
+  {codeNum:"0000039",prodCode:"ZKLOOKEP7Y",name:"サイドテーブル"},
+  {codeNum:"0000040",prodCode:"6WKTAKPUXQ",name:"カフェテーブル"},
+  {codeNum:"0000041",prodCode:"PHR62GDSWM",name:"丸テーブル"},
+  {codeNum:"0000042",prodCode:"31YIHAIR4C",name:"楕円テーブル"},
+  {codeNum:"0000043",prodCode:"OWGZRIXA11",name:"ハイテーブル"},
+  {codeNum:"0000044",prodCode:"DPG8SBI4Q2",name:"ローテーブル"},
+  {codeNum:"0000045",prodCode:"Y9V86WZS3T",name:"センターテーブル"},
+  {codeNum:"0000046",prodCode:"60RJIW1SWJ",name:"ソファ２人掛け"},
+  {codeNum:"0000047",prodCode:"CKJLTEIYZC",name:"ソファ３人掛け"},
+  {codeNum:"0000048",prodCode:"OTOHP6VZ41",name:"ラブソファ"},
+  {codeNum:"0000049",prodCode:"NAM148P0TV",name:"オットマン"},
+  {codeNum:"0000050",prodCode:"HHPBMYOFQE",name:"ベンチシート"},
+  {codeNum:"0000051",prodCode:"WAOUAXEQBN",name:"待合チェア"},
+  {codeNum:"0000052",prodCode:"HL1N13JCAT",name:"連結チェア"},
+  {codeNum:"0000053",prodCode:"9MX2X18HAF",name:"パーテーション"},
+  {codeNum:"0000054",prodCode:"EYUHZ1GV0E",name:"アコーディオンドア"},
+  {codeNum:"0000055",prodCode:"38DALY8OZC",name:"ガラスパーテーション"},
+  {codeNum:"0000056",prodCode:"YWD14VE92M",name:"スチールパーテーション"},
+  {codeNum:"0000057",prodCode:"PNSM43D8W3",name:"受付カウンター"},
+  {codeNum:"0000058",prodCode:"ZP08J3TRP0",name:"ハイカウンター"},
+  {codeNum:"0000059",prodCode:"J43D5IQVNB",name:"ローカウンター"},
+  {codeNum:"0000060",prodCode:"4GH2M5ZJA8",name:"インフォメーションボード"},
+  {codeNum:"0000061",prodCode:"DZR1YXR2DH",name:"サイネージスタンド"},
+  {codeNum:"0000062",prodCode:"YLURTP0LZJ",name:"ポスタースタンド"},
+  {codeNum:"0000063",prodCode:"JEGET1GHR0",name:"アンブレラスタンド"},
+  {codeNum:"0000064",prodCode:"9SKDGIGATJ",name:"シューズボックス"},
+  {codeNum:"0000065",prodCode:"9TZE5R5UQP",name:"コートハンガー"},
+  {codeNum:"0000066",prodCode:"GB7R3OCWBF",name:"ポールハンガー"},
+  {codeNum:"0000067",prodCode:"UK9E1V2ISQ",name:"フックパネル"},
+  {codeNum:"0000068",prodCode:"P49KWV08HH",name:"マガジンラック"},
+  {codeNum:"0000069",prodCode:"XFGCAQVKIZ",name:"ブックスタンド"},
+  {codeNum:"0000070",prodCode:"ZQY72WX7PT",name:"メールボックス"},
+  {codeNum:"0000071",prodCode:"X63CFL0UKE",name:"卓上書類トレー"},
+  {codeNum:"0000072",prodCode:"YZ7SRCBPLJ",name:"名刺入れスタンド"},
+  {codeNum:"0000073",prodCode:"D84U89YJB1",name:"引き出しユニット"},
+  {codeNum:"0000074",prodCode:"QX6GVWRDML",name:"デスクオーガナイザー"},
+  {codeNum:"0000075",prodCode:"Y4LYK83TQL",name:"ペンスタンド"},
+  {codeNum:"0000076",prodCode:"L8OS9XTOGN",name:"ゴミ箱（角型）"},
+  {codeNum:"0000077",prodCode:"1W1HT7PZE9",name:"ゴミ箱（丸型）"},
+  {codeNum:"0000078",prodCode:"VIFTTD96QE",name:"リサイクルボックス"},
+  {codeNum:"0000079",prodCode:"3RZSJ49ITN",name:"分別ゴミ箱"},
+  {codeNum:"0000080",prodCode:"7S55J2O7S3",name:"シュレッダー台"},
+  {codeNum:"0000081",prodCode:"KKV9RFTMTT",name:"プリンタースタンド"},
+  {codeNum:"0000082",prodCode:"QLGZUI1B0Z",name:"コピー機台"},
+  {codeNum:"0000083",prodCode:"3NX39RBSV5",name:"ＦＡＸ台"},
+  {codeNum:"0000084",prodCode:"5PSQ0OXFQ8",name:"ＰＣ収納ラック"},
+  {codeNum:"0000085",prodCode:"MYX444NLZ1",name:"サーバーラック"},
+  {codeNum:"0000086",prodCode:"5BCW790PDW",name:"電話台"},
+  {codeNum:"0000087",prodCode:"5PY6B2KNFT",name:"コードレス充電スタンド"},
+  {codeNum:"0000088",prodCode:"U2GC5WI6FQ",name:"タブレットスタンド"},
+  {codeNum:"0000089",prodCode:"JJA26YFPMV",name:"ディスプレイ台"},
+  {codeNum:"0000090",prodCode:"XPJ4HNRIUU",name:"ブックシェルフ"},
+  {codeNum:"0000091",prodCode:"9K9XJUY0BV",name:"スリムシェルフ"},
+  {codeNum:"0000092",prodCode:"R6K2VMWWYZ",name:"コーナーシェルフ"},
+  {codeNum:"0000093",prodCode:"X4W6XLPU0D",name:"ウォールシェルフ"},
+  {codeNum:"0000094",prodCode:"K0GET8T63J",name:"キッチンカウンター"},
+  {codeNum:"0000095",prodCode:"3R30ME8F84",name:"コーヒーメーカー台"},
+  {codeNum:"0000096",prodCode:"0982N2ATQY",name:"観葉植物スタンド"},
+  {codeNum:"0000097",prodCode:"YV37DIA5U6",name:"フラワースタンド"},
+  {codeNum:"0000098",prodCode:"HC36KOF8KR",name:"折りたたみ椅子"},
+  {codeNum:"0000099",prodCode:"D5EQY08P0F",name:"スツール"},
+  {codeNum:"0000100",prodCode:"ODRO8BNP84",name:"バースツール"}
+];
+
+// codeNum → レコード のマップ（スキャン照合用）
+const DB_BY_CODE = {};
+DB.forEach(r => {
+  DB_BY_CODE[r.codeNum] = r;                        // "0000001"
+  DB_BY_CODE[String(parseInt(r.codeNum, 10))] = r;  // "1" (ゼロパディングなし)
+});
+
+// ══════════════════════════════════════════════════════
+//  棚卸データストア
+// ══════════════════════════════════════════════════════
+let records = JSON.parse(localStorage.getItem('inv_v3') || '[]');
+
+// ══════════════════════════════════════════════════════
+//  スキャン（CCマルチモード）
+// ══════════════════════════════════════════════════════
+function startScan() {
+  if (typeof IroatoReader === 'undefined') {
+    // デモ：DBからランダム1〜3件
+    const n = Math.floor(Math.random() * 3) + 1;
+    const picked = DB.slice().sort(() => .5 - Math.random()).slice(0, n);
+    picked.forEach(m => addRecord(m.codeNum, m.prodCode, m.name, 1, ''));
+    showToast('✅ ' + n + '件読取（デモ）', 'success');
+    return;
+  }
+  const reader = new IroatoReader('cc', {
+    mode: IroatoReader.multi,
+    resolution: IroatoReader.r1280x720,
+    labelText: 'カメレオンコードをかざしてください'
+  });
+  reader.read(function(res) {
+    if (!res.status || !res.data.codes.length) {
+      showToast('⚠️ 読み取れませんでした', 'warn'); return;
+    }
+    let hit = 0;
+    res.data.codes.forEach(function(c) {
+      const raw = String(c.code).trim();
+      const m = DB_BY_CODE[raw];
+      if (m) {
+        addRecord(m.codeNum, m.prodCode, m.name, 1, c.datetime);
+        hit++;
+      } else {
+        // デバッグ：未登録の場合は実際のコード値を記録
+        addRecord(raw, '—', '未登録[' + raw + ']', 1, c.datetime);
+        hit++;
+      }
+    });
+    showToast('✅ ' + hit + '件読取成功', 'success');
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  レコード追加（同コードは数量加算）
+// ══════════════════════════════════════════════════════
+function addRecord(codeNum, prodCode, name, qty, datetime) {
+  const ex = records.find(r => r.codeNum === codeNum);
+  if (ex) {
+    ex.qty      += qty;
+    ex.datetime  = datetime || now();
+  } else {
+    records.unshift({
+      id: Date.now() + Math.random(),
+      codeNum, prodCode, name, qty,
+      datetime: datetime || now()
+    });
+  }
+  save(); render();
+}
+
+function now() {
+  return new Date().toLocaleTimeString('ja-JP',
+    { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// ══════════════════════════════════════════════════════
+//  手動入力モーダル
+// ══════════════════════════════════════════════════════
+let selectedItem = null;
+let suggestIdx   = -1;
+let currentSuggests = [];
+
+function openModal() {
+  selectedItem = null;
+  suggestIdx   = -1;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('qtyInput').value    = '1';
+  document.getElementById('suggestList').style.display = 'none';
+  document.getElementById('selectedInfo').style.display = 'none';
+  document.getElementById('addBtn').disabled = true;
+  document.getElementById('addBtn').style.opacity = '.5';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(() => document.getElementById('searchInput').focus(), 100);
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('suggestList').style.display = 'none';
+}
+
+// インクリメンタルサーチ
+function onSearch(q) {
+  selectedItem = null;
+  document.getElementById('selectedInfo').style.display = 'none';
+  document.getElementById('addBtn').disabled = true;
+  document.getElementById('addBtn').style.opacity = '.5';
+
+  if (!q.trim()) {
+    document.getElementById('suggestList').style.display = 'none';
+    return;
+  }
+  const kw = q.trim().toUpperCase();
+  // 製品コード前方一致 > 製品名部分一致 > コード番号前方一致
+  currentSuggests = DB.filter(r =>
+    r.prodCode.toUpperCase().includes(kw) ||
+    r.name.includes(q.trim()) ||
+    r.codeNum.startsWith(q.trim())
+  ).slice(0, 12);
+
+  const sl = document.getElementById('suggestList');
+  if (!currentSuggests.length) {
+    sl.innerHTML = '<div class="suggest-none">該当なし</div>';
+    sl.style.display = 'block';
+    suggestIdx = -1;
+    return;
+  }
+  suggestIdx = -1;
+  sl.innerHTML = currentSuggests.map((r, i) => `
+    <div class="suggest-item" data-idx="${i}" onmousedown="selectSuggest(${i})">
+      <span class="suggest-pcode">${esc(r.prodCode)}</span>
+      <span class="suggest-name">${esc(r.name)}</span>
+      <span class="suggest-code">${r.codeNum}</span>
+    </div>
+  `).join('');
+  sl.style.display = 'block';
+}
+
+function onSearchKey(e) {
+  const sl = document.getElementById('suggestList');
+  if (sl.style.display === 'none' || !currentSuggests.length) return;
+  const items = sl.querySelectorAll('.suggest-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    suggestIdx = Math.min(suggestIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === suggestIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    suggestIdx = Math.max(suggestIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('active', i === suggestIdx));
+  } else if (e.key === 'Enter') {
+    if (suggestIdx >= 0) { e.preventDefault(); selectSuggest(suggestIdx); }
+  } else if (e.key === 'Escape') {
+    sl.style.display = 'none';
+  }
+}
+
+function selectSuggest(idx) {
+  const r = currentSuggests[idx];
+  if (!r) return;
+  selectedItem = r;
+  document.getElementById('searchInput').value = r.prodCode + '　' + r.name;
+  document.getElementById('suggestList').style.display = 'none';
+  // 選択情報表示
+  document.getElementById('selectedBox').innerHTML =
+    `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">${esc(r.prodCode)}</span>
+     　<strong>${esc(r.name)}</strong>
+     <br><span style="font-size:11px;color:var(--muted)">コード: ${r.codeNum}</span>`;
+  document.getElementById('selectedInfo').style.display = 'block';
+  document.getElementById('addBtn').disabled = false;
+  document.getElementById('addBtn').style.opacity = '1';
+  document.getElementById('qtyInput').focus();
+}
+
+function addManual() {
+  if (!selectedItem) return;
+  const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+  addRecord(selectedItem.codeNum, selectedItem.prodCode, selectedItem.name, qty, '');
+  closeModal();
+  showToast('✅ 追加: ' + selectedItem.name, 'success');
+}
+
+// ══════════════════════════════════════════════════════
+//  編集
+// ══════════════════════════════════════════════════════
+function updateQty(id, val) {
+  const r = records.find(r => r.id === id);
+  const q = parseInt(val);
+  if (r && q > 0) { r.qty = q; save(); }
+}
+function updateName(id, val) {
+  const r = records.find(r => r.id === id);
+  if (r) { r.name = val; save(); }
+}
+
+// ══════════════════════════════════════════════════════
+//  電卓（数量入力）
+// ══════════════════════════════════════════════════════
+let calcTargetId = null;
+let calcValue    = '1';
+
+function openCalc(id) {
+  calcTargetId = id;
+  const r = records.find(r => r.id === id);
+  calcValue = String(r ? r.qty : 1);
+  document.getElementById('calcDisplay').textContent = calcValue;
+  document.getElementById('calcLabel').textContent = r ? r.name + '　数量' : '数量を入力';
+  document.getElementById('calcOverlay').classList.add('open');
+}
+function closeCalc() {
+  document.getElementById('calcOverlay').classList.remove('open');
+  calcTargetId = null;
+}
+function calcKey(k) {
+  if (k === 'del') {
+    calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
+  } else {
+    if (calcValue === '0') calcValue = k;
+    else calcValue += k;
+    if (calcValue.length > 5) calcValue = calcValue.slice(0, 5);
+  }
+  document.getElementById('calcDisplay').textContent = calcValue || '0';
+}
+function calcConfirm() {
+  const q = parseInt(calcValue) || 1;
+  if (calcTargetId !== null) {
+    const r = records.find(r => r.id === calcTargetId);
+    if (r) { r.qty = q; save(); render(); }
+  }
+  closeCalc();
+}
+// ══════════════════════════════════════════════════════
+function deleteRecord(id) {
+  records = records.filter(r => r.id !== id);
+  save(); render(); showToast('🗑 削除しました', 'warn');
+}
+function clearAll() {
+  if (!confirm('全件クリアしますか？')) return;
+  records = []; save(); render(); showToast('🗑 クリアしました', 'warn');
+}
+
+// ══════════════════════════════════════════════════════
+//  描画
+// ══════════════════════════════════════════════════════
+function render() {
+  document.getElementById('hTotal').textContent = records.length;
+  document.getElementById('hItems').textContent = [...new Set(records.map(r => r.codeNum))].length;
+  document.getElementById('rowCnt').textContent = records.length + '件';
+
+  const tbody = document.getElementById('tbody');
+  if (!records.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">
+      <div class="empty-icon">📷</div>
+      <div class="empty-text">カメレオンコードをスキャンするか<br>手動入力で追加してください</div>
+    </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td class="td-pcode">${esc(r.prodCode)}</td>
+      <td class="td-name">
+        <input class="editable" value="${esc(r.name)}"
+          onchange="updateName(${r.id}, this.value)" title="タップして編集" />
+      </td>
+      <td class="td-qty">
+        <button class="qty-btn" onclick="openCalc(${r.id})">${r.qty}</button>
+      </td>
+      <td><button class="del-btn" onclick="deleteRecord(${r.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════
+//  CSV出力（BOM付きUTF-8）
+// ══════════════════════════════════════════════════════
+function exportCSV() {
+  if (!records.length) { showToast('⚠️ データがありません', 'warn'); return; }
+  const header = 'コード番号,製品コード,製品名,数量,時刻\n';
+  const rows = records.map(r =>
+    [r.codeNum, r.prodCode, r.name, r.qty, r.datetime]
+      .map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',')
+  ).join('\n');
+  const blob = new Blob(['\uFEFF' + header + rows], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '棚卸_' + new Date().toLocaleDateString('ja-JP').replace(/\//g,'-') + '.csv';
+  a.click();
+  showToast('📥 CSVダウンロード完了', 'success');
+}
+
+// ══════════════════════════════════════════════════════
+//  保存 / トースト
+// ══════════════════════════════════════════════════════
+function save() { localStorage.setItem('inv_v3', JSON.stringify(records)); }
+
+let tt;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + (type || '');
+  clearTimeout(tt);
+  tt = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── モーダル外クリックで候補を閉じる ──
+document.addEventListener('click', e => {
+  if (!e.target.closest('#modal')) return;
+  if (!e.target.closest('#searchInput') && !e.target.closest('#suggestList')) {
+    document.getElementById('suggestList').style.display = 'none';
+  }
+});
+
+render();
+</script>
+</body>
+</html>
