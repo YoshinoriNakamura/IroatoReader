@@ -1114,17 +1114,30 @@ function returnBackToArmband() {
 }
 
 function returnGoToConfirm() {
-  // Find the matching departure record
-  const rec = state.matchedRecord;
-  if (rec) {
-    document.getElementById('rcfmCompany').textContent = rec.company;
-    document.getElementById('rcfmName').textContent = rec.personName;
-    document.getElementById('rcfmDepartTime').textContent = rec.departAt;
-  } else {
-    document.getElementById('rcfmCompany').textContent = '—';
-    document.getElementById('rcfmName').textContent = '—';
-    document.getElementById('rcfmDepartTime').textContent = '—';
+  // 出庫記録との照合チェック
+  if (!state.matchedRecord) {
+    // 腕章から出庫記録を再検索
+    const records = loadRecords();
+    state.matchedRecord = records.find(r => r.armbandCode === state.armbandCode && !r.returnAt);
   }
+
+  const rec = state.matchedRecord;
+  if (!rec) {
+    toast('この腕章に対応する出庫記録が見つかりません', 'error');
+    return;
+  }
+
+  // 車両プレート照合
+  if (rec.vehicleCode !== state.vehicleCode) {
+    toast('車両プレートが出庫時と一致しません\n出庫時: ' + (rec.vehicleName || rec.vehicleCode) + '\n読取り: ' + (state.vehicleName || state.vehicleCode), 'error');
+    // 車両プレートスキャンに戻す
+    returnBackToVehicle();
+    return;
+  }
+
+  document.getElementById('rcfmCompany').textContent = rec.company;
+  document.getElementById('rcfmName').textContent = rec.personName;
+  document.getElementById('rcfmDepartTime').textContent = rec.departAt;
   document.getElementById('rcfmArmband').innerHTML = esc(state.armbandCode) +
     (state.armbandName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.armbandName) + '</span>' : '');
   document.getElementById('rcfmVehicle').innerHTML = esc(state.vehicleCode) +
@@ -1198,12 +1211,13 @@ function scanReturnVehicle() {
 function scanCC(labelText, callback) {
   try {
     var reader = new IroatoReader('cc', {
-      mode:        IroatoReader.single,
-      resolution:  IroatoReader.r1280x720,
-      lineColor:   IroatoReader.green,
-      lineWidth:   10,
-      errLineColor: IroatoReader.red,
-      labelText:   labelText,
+      mode:           IroatoReader.single,
+      resolution:     IroatoReader.r1280x720,
+      cameraPosition: IroatoReader.front,
+      lineColor:      IroatoReader.green,
+      lineWidth:      10,
+      errLineColor:   IroatoReader.red,
+      labelText:      labelText,
     });
     reader.read(function(res) {
       if (res && res.data && res.data.codes && res.data.codes.length > 0) {
@@ -1293,33 +1307,37 @@ function registerReturn() {
   const records = loadRecords();
   const now = new Date();
 
-  // Find and update the matching record
-  let matched = false;
+  // Find the matching departure record by armband code
+  let matchedIdx = -1;
   if (state.matchedRecord) {
-    const idx = records.findIndex(r => r.id === state.matchedRecord.id);
-    if (idx >= 0) {
-      records[idx].returnAt = formatDateTime(now);
-      matched = true;
-      state.company = records[idx].company;
-      state.personName = records[idx].personName;
-    }
+    matchedIdx = records.findIndex(r => r.id === state.matchedRecord.id);
+  }
+  if (matchedIdx < 0) {
+    matchedIdx = records.findIndex(r => r.armbandCode === state.armbandCode && !r.returnAt);
   }
 
-  if (!matched) {
-    // Try matching by armband code
-    const idx = records.findIndex(r => r.armbandCode === state.armbandCode && !r.returnAt);
-    if (idx >= 0) {
-      records[idx].returnAt = formatDateTime(now);
-      state.company = records[idx].company;
-      state.personName = records[idx].personName;
-      matched = true;
-    }
-  }
-
-  if (!matched) {
+  if (matchedIdx < 0) {
     toast('対応する出庫記録が見つかりませんでした', 'error');
     return;
   }
+
+  // 車両プレートの照合チェック: 出庫時と同じ車両プレートか確認
+  const matchedRec = records[matchedIdx];
+  if (matchedRec.vehicleCode !== state.vehicleCode) {
+    toast('車両プレートが出庫時と一致しません。\n出庫時: ' + (matchedRec.vehicleName || matchedRec.vehicleCode) + '\n読取り: ' + (state.vehicleName || state.vehicleCode), 'error');
+    return;
+  }
+
+  // 腕章コードの照合チェック（念のため）
+  if (matchedRec.armbandCode !== state.armbandCode) {
+    toast('腕章コードが出庫記録と一致しません', 'error');
+    return;
+  }
+
+  // 照合OK — 帰庫登録
+  records[matchedIdx].returnAt = formatDateTime(now);
+  state.company = matchedRec.company;
+  state.personName = matchedRec.personName;
 
   saveRecords(records);
 
@@ -1506,32 +1524,45 @@ function downloadCSV() {
 
   const settings = getSettings();
   const email = settings.email || '';
-  const subject = encodeURIComponent(from + '〜' + to + ' 出庫帰庫データ');
-
-  // For iPad: create blob and use mailto with attachment approach
-  // Since mailto can't attach files directly, we use a download + mail approach
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
   const filename = '出庫帰庫データ_' + from + '_' + to + '.csv';
+  const subject = from + '〜' + to + ' 出庫帰庫データ';
 
-  // Try download first
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
+  // iPad: navigator.share APIでCSVファイルをメール添付として共有
+  (async function() {
+    try {
+      if (navigator.share && navigator.canShare) {
+        const file = new File([csv], filename, { type: 'text/csv;charset=utf-8' });
+        const shareData = { files: [file], title: subject, text: subject };
+        if (navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          toast('CSVを共有しました', 'success');
+          return;
+        }
+      }
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') return;
+    }
 
-  // Then open mail
-  setTimeout(() => {
-    const mailBody = encodeURIComponent(
-      from + '〜' + to + ' の出庫帰庫データをお送りします。\n\n' +
-      '件数: ' + filtered.length + '件\n' +
-      '※ CSVファイルはダウンロード済みです。メールに添付してください。'
-    );
-    window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + mailBody;
-    toast('CSVをダウンロードしました。メールに添付して送信してください。', 'success');
-  }, 500);
+    // フォールバック: ダウンロード + mailto
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
 
-  URL.revokeObjectURL(url);
+    setTimeout(() => {
+      const mailBody = encodeURIComponent(
+        from + '〜' + to + ' の出庫帰庫データをお送りします。\n\n' +
+        '件数: ' + filtered.length + '件\n' +
+        '※ ダウンロード済みのCSVファイルを添付してください。'
+      );
+      window.location.href = 'mailto:' + encodeURIComponent(email) +
+        '?subject=' + encodeURIComponent(subject) + '&body=' + mailBody;
+      toast('CSVをダウンロードしました', 'success');
+      URL.revokeObjectURL(blobUrl);
+    }, 300);
+  })();
 }
 
 function csvEsc(val) {
