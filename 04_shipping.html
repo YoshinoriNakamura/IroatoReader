@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IroatoWMS - 出荷処理</title>
+<script src="auth.js?v=3"></script>
+<style>
+  :root {
+    --primary:  #b45309;
+    --primary-lt: #fef3c7;
+    --primary-bd: #fcd34d;
+    --success:  #057a55;
+    --danger:   #dc2626;
+    --bg:       #fffbeb;
+    --surface:  #ffffff;
+    --border:   #e5e7eb;
+    --text:     #111827;
+    --muted:    #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    min-height: 100%; background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', sans-serif;
+    font-size: 16px; color: var(--text); overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--primary); color: #fff;
+    padding: 12px 16px 10px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .header-row { display: flex; align-items: center; gap: 10px; }
+  .header h1 { font-size: 17px; font-weight: 700; flex: 1; text-align: center; }
+  .header-sub { font-size: 11px; opacity: .75; text-align: center; margin-top: 2px; }
+  .back-btn {
+    background: rgba(255,255,255,.2); border: none; border-radius: 8px;
+    color: #fff; padding: 7px 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* ── STEP BAR ── */
+  .step-bar {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    position: sticky; top: 56px; z-index: 40;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    padding: 5px 12px; border-radius: 20px; transition: all .2s;
+  }
+  .step-item.active { background: var(--primary); color: #fff; }
+  .step-item.done   { background: #d1fae5; color: var(--success); }
+  .step-arrow { color: var(--border); font-size: 16px; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px;
+  }
+  .progress-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .progress-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .progress-count { font-size: 14px; font-weight: 800; color: var(--primary); }
+  .progress-bar-bg { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width .4s; }
+  .progress-bar-fill.done { background: var(--success); }
+
+  /* ── CONTENT ── */
+  .content { padding: 14px 14px 160px; max-width: 480px; margin: 0 auto; }
+
+  /* ── SELECT ALL BAR ── */
+  .select-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px 14px; margin-bottom: 10px;
+  }
+  .select-bar-label { font-size: 13px; font-weight: 700; color: var(--text); }
+  .select-bar-count { font-size: 12px; color: var(--muted); }
+  .btn-select-all {
+    padding: 6px 14px; background: var(--primary-lt); border: 1px solid var(--primary-bd);
+    border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--primary);
+    cursor: pointer;
+  }
+  .btn-select-all:active { opacity: .7; }
+
+  /* ── ITEM ROW ── */
+  .ship-row {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; transition: border-color .15s, background .15s;
+    -webkit-user-select: none;
+  }
+  .ship-row.selected   { border-color: var(--primary); background: #fffbeb; }
+  .ship-row.confirmed  { border-color: #6ee7b7; background: #f0fdf4; opacity: .7; }
+  .ship-row.confirmed .ship-name { text-decoration: line-through; color: var(--muted); }
+  .ship-check {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; transition: all .2s;
+  }
+  .ship-row.selected  .ship-check { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .ship-row.confirmed .ship-check { background: var(--success); border-color: var(--success); color: #fff; }
+  .ship-info { flex: 1; min-width: 0; }
+  .ship-main { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 14px; }
+  .ship-name { font-weight: 700; }
+  .ship-sep { color: var(--border); font-size: 12px; }
+  .ship-barcode { font-size: 12px; font-family: monospace; color: var(--muted); }
+  .ship-loc {
+    font-size: 11px; font-weight: 700; color: #0891b2;
+    background: #ecfeff; padding: 2px 8px; border-radius: 10px;
+    margin-top: 3px; display: inline-block;
+  }
+  .ship-picked-at { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; line-height: 1.6; }
+
+  /* ── COMPLETE CARD ── */
+  .complete-card {
+    background: #f0fdf4; border: 2px solid #86efac;
+    border-radius: 16px; padding: 28px 20px; text-align: center; margin-bottom: 14px;
+  }
+  .complete-icon { font-size: 56px; margin-bottom: 12px; }
+  .complete-title { font-size: 22px; font-weight: 800; color: var(--success); margin-bottom: 6px; }
+  .complete-sub { font-size: 14px; color: var(--muted); }
+
+  /* ── FOOTER ── */
+  .fixed-footer {
+    position: fixed; bottom: 0; z-index: 60;
+    left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 12px 16px 28px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+  }
+  .big-btn {
+    width: 100%; padding: 17px; border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    -webkit-user-select: none; transition: transform .1s;
+  }
+  .big-btn:active { transform: scale(.97); }
+  .big-btn.amber   { background: var(--primary); color: #fff; }
+  .big-btn.green   { background: var(--success); color: #fff; }
+  .big-btn.outline { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); margin-top: 10px; }
+  .big-btn.disabled { opacity: .4; pointer-events: none; }
+  .foot-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 7px; }
+
+  /* ── FLASH ── */
+  @keyframes scanFlash {
+    0%   { background: #d1fae5; }
+    100% { background: #f0fdf4; }
+  }
+  .ship-row.just-scanned { animation: scanFlash 1s ease; }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+    z-index: 200; width: calc(100% - 32px); max-width: 440px; pointer-events: none;
+  }
+  .toast {
+    background: #111827; color: #fff;
+    padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    animation: toastIn .3s ease; pointer-events: all; margin-bottom: 6px;
+  }
+  .toast.success { border-left: 4px solid #34d399; }
+  .toast.error   { border-left: 4px solid #f87171; }
+  .toast.warning { border-left: 4px solid #fbbf24; }
+  @keyframes toastIn {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-row">
+    <button class="back-btn" onclick="handleBack()">← 戻る</button>
+    <div style="flex:1;text-align:center;">
+      <h1>📦 出荷処理</h1>
+      <div class="header-sub" id="headerSub">ピッキング済み製品の出荷確定</div>
+    </div>
+    <div style="width:56px;"></div>
+  </div>
+</div>
+
+<!-- STEP BAR -->
+<div class="step-bar">
+  <div class="step-item active" id="step1Label">① 出荷対象確認</div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step2Label">② CCスキャン確認</div>
+  <div class="step-arrow">›</div>
+  <div class="step-item" id="step3Label">③ 出荷確定</div>
+</div>
+
+<!-- PROGRESS (STEP2 only) -->
+<div id="progressArea" style="display:none;">
+  <div class="progress-wrap">
+    <div class="progress-row">
+      <span class="progress-label" id="progressLabel">スキャン進捗</span>
+      <span class="progress-count" id="progressCount">0 / 0</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="mainContent"></div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ============================================================
+// STORAGE KEYS
+// ============================================================
+const KEY_ITEMS = 'wms_items';
+const KEY_TRANS = 'wms_transactions';
+
+// ============================================================
+// STATE
+// ============================================================
+let currentStep    = 1;
+let pickedItems    = [];   // wms_itemsのpickedなもの全件
+let selectedIds    = new Set();  // 出荷対象として選択中のid
+let confirmedIds   = new Set();  // CCスキャン済みのid
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  WMSAuth.requireAuth('auth.html');
+  loadPickedItems();
+  renderStep1();
+});
+
+// ============================================================
+// STEP 1: 出荷対象確認
+// ============================================================
+function loadPickedItems() {
+  var items = getItems();
+  pickedItems = items.filter(function(i) {
+    return i.status === 'picked' && !i.deletedAt;
+  });
+  // デフォルト全件選択
+  selectedIds = new Set(pickedItems.map(function(i){ return i.id; }));
+}
+
+function renderStep1() {
+  currentStep = 1;
+  confirmedIds = new Set();
+  document.getElementById('step1Label').className = 'step-item active';
+  document.getElementById('step2Label').className = 'step-item';
+  document.getElementById('step3Label').className = 'step-item';
+  document.getElementById('progressArea').style.display = 'none';
+  document.getElementById('headerSub').textContent = 'ピッキング済み製品の出荷確定';
+
+  removeFooter();
+
+  const content = document.getElementById('mainContent');
+
+  if (pickedItems.length === 0) {
+    content.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">ピッキング済みの製品がありません</div>
+        <div class="empty-sub">先にピッキング処理を完了してください</div>
+      </div>`;
+    return;
+  }
+
+  renderStep1Content();
+  renderStep1Footer();
+}
+
+function renderStep1Content() {
+  const content = document.getElementById('mainContent');
+  const selCount = selectedIds.size;
+
+  content.innerHTML = `
+    <div class="select-bar">
+      <div>
+        <div class="select-bar-label">ピッキング済み製品</div>
+        <div class="select-bar-count">${selCount}件 / ${pickedItems.length}件を選択中</div>
+      </div>
+      <button class="btn-select-all" onclick="toggleSelectAll()">
+        ${selCount === pickedItems.length ? '全解除' : '全選択'}
+      </button>
+    </div>
+
+    ${pickedItems.map(function(item) {
+      const isSel = selectedIds.has(item.id);
+      return `
+        <div class="ship-row ${isSel ? 'selected' : ''}" id="srow-${item.id}"
+             onclick="toggleSelect('${esc(item.id)}')">
+          <div class="ship-check">${isSel ? '✓' : ''}</div>
+          <div class="ship-info">
+            <div class="ship-main">
+              <span class="ship-name">${esc(item.productName || item.barcode || '-')}</span>
+              ${item.productName && item.barcode ? `<span class="ship-sep">·</span><span class="ship-barcode">${esc(item.barcode)}</span>` : ''}
+            </div>
+            <div>
+              <span class="ship-loc">📍 ${esc(item.locationName || item.locationCode || '未ロケーション')}</span>
+            </div>
+            ${item.pickedAt ? `<div class="ship-picked-at">ピック: ${esc(item.pickedAt)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('')}
+  `;
+}
+
+function renderStep1Footer() {
+  removeFooter();
+  const footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'fixed-footer';
+  const selCount = selectedIds.size;
+  footer.innerHTML = `
+    <button class="big-btn amber ${selCount === 0 ? 'disabled' : ''}"
+            onclick="startScanStep()">
+      <span>📷</span> CCスキャン確認へ（${selCount}件）
+    </button>
+    ${selCount === 0 ? '<div class="foot-hint">出荷対象を1件以上選択してください</div>' : '<div class="foot-hint">タップで個別選択・解除できます</div>'}
+  `;
+  document.body.appendChild(footer);
+}
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+  } else {
+    selectedIds.add(id);
+  }
+  renderStep1Content();
+  renderStep1Footer();
+}
+
+function toggleSelectAll() {
+  if (selectedIds.size === pickedItems.length) {
+    selectedIds.clear();
+  } else {
+    selectedIds = new Set(pickedItems.map(function(i){ return i.id; }));
+  }
+  renderStep1Content();
+  renderStep1Footer();
+}
+
+// ============================================================
+// STEP 2: CCスキャン確認
+// ============================================================
+function startScanStep() {
+  if (selectedIds.size === 0) return;
+  currentStep = 2;
+  confirmedIds = new Set();
+
+  document.getElementById('step1Label').className = 'step-item done';
+  document.getElementById('step2Label').className = 'step-item active';
+  document.getElementById('step3Label').className = 'step-item';
+  document.getElementById('progressArea').style.display = 'block';
+  document.getElementById('headerSub').textContent = 'CCコードをスキャンして確認';
+
+  renderStep2();
+}
+
+function renderStep2() {
+  const targets = pickedItems.filter(function(i){ return selectedIds.has(i.id); });
+  const total   = targets.length;
+  const done    = confirmedIds.size;
+  const remaining = total - done;
+  const pct     = total > 0 ? Math.round(done / total * 100) : 0;
+  const isAllDone = done === total;
+
+  // Progress更新
+  document.getElementById('progressCount').textContent = done + ' / ' + total;
+  document.getElementById('progressLabel').textContent =
+    isAllDone ? '✅ スキャン確認完了！' : 'スキャン確認進捗 ' + pct + '%';
+  const fill = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-bar-fill' + (isAllDone ? ' done' : '');
+
+  const content = document.getElementById('mainContent');
+
+  if (isAllDone) {
+    renderStep2Complete();
+    return;
+  }
+
+  content.innerHTML = targets.map(function(item) {
+    const isConf = confirmedIds.has(item.id);
+    return `
+      <div class="ship-row ${isConf ? 'confirmed' : 'selected'}" id="srow2-${item.id}">
+        <div class="ship-check">${isConf ? '✓' : ''}</div>
+        <div class="ship-info">
+          <div class="ship-main">
+            <span class="ship-name">${esc(item.productName || item.barcode || '-')}</span>
+            ${item.productName && item.barcode ? `<span class="ship-sep">·</span><span class="ship-barcode">${esc(item.barcode)}</span>` : ''}
+          </div>
+          <div>
+            <span class="ship-loc">📍 ${esc(item.locationName || item.locationCode || '未ロケーション')}</span>
+            ${isConf ? '<span style="font-size:11px;color:var(--success);margin-left:6px;">✓ スキャン済</span>' : ''}
+            ${!item.ccCode ? '<span style="font-size:11px;color:var(--danger);margin-left:6px;">⚠ CC未登録</span>' : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  renderStep2Footer(remaining, targets);
+}
+
+function renderStep2Footer(remaining, targets) {
+  removeFooter();
+  const footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'fixed-footer';
+
+  const noCCCount = targets.filter(function(i){ return !i.ccCode && !confirmedIds.has(i.id); }).length;
+
+  footer.innerHTML = `
+    <button class="big-btn amber" onclick="executeScan()">
+      <span>📷</span> CCコードをまとめスキャン（${remaining}件）
+    </button>
+    ${noCCCount > 0
+      ? `<button class="big-btn outline" onclick="skipNoCCItems()">
+           ⚠ CC未登録 ${noCCCount}件をスキップして確定
+         </button>`
+      : ''}
+    <div class="foot-hint">対象品のCCコードをスキャンして出荷確認</div>
+  `;
+  document.body.appendChild(footer);
+}
+
+function renderStep2Complete() {
+  document.getElementById('step2Label').className = 'step-item done';
+  document.getElementById('step3Label').className = 'step-item active';
+
+  const content = document.getElementById('mainContent');
+  const targets = pickedItems.filter(function(i){ return selectedIds.has(i.id); });
+
+  content.innerHTML = `
+    <div class="complete-card" style="background:#fffbeb;border-color:var(--primary-bd);">
+      <div class="complete-icon">✅</div>
+      <div class="complete-title" style="color:var(--primary);">スキャン確認完了</div>
+      <div class="complete-sub">${targets.length}件すべてのCCコードを確認しました</div>
+    </div>
+    ${targets.map(function(item) {
+      return `
+        <div class="ship-row confirmed">
+          <div class="ship-check">✓</div>
+          <div class="ship-info">
+            <div class="ship-main">
+              <span class="ship-name">${esc(item.productName || item.barcode || '-')}</span>
+              ${item.productName && item.barcode ? `<span class="ship-sep">·</span><span class="ship-barcode">${esc(item.barcode)}</span>` : ''}
+            </div>
+            <div><span class="ship-loc">📍 ${esc(item.locationName || item.locationCode || '未ロケーション')}</span></div>
+          </div>
+        </div>`;
+    }).join('')}
+  `;
+
+  removeFooter();
+  const footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'fixed-footer';
+  footer.innerHTML = `
+    <button class="big-btn green" onclick="confirmShipment()">
+      🚚 出荷確定（${targets.length}件）
+    </button>
+    <button class="big-btn outline" onclick="startScanStep()">
+      ← スキャンに戻る
+    </button>
+  `;
+  document.body.appendChild(footer);
+}
+
+// ── CCスキャン実行
+// ── CCスキャン実行（multiモード：まとめ読み）
+function executeScan() {
+  const targets = pickedItems.filter(function(i){ return selectedIds.has(i.id) && !confirmedIds.has(i.id) && i.ccCode; });
+  if (targets.length === 0) {
+    toast('スキャン対象がありません（CC未登録品を除く）', 'warning');
+    return;
+  }
+
+  const searchCodes = targets.map(function(i){ return i.ccCode; });
+  const remaining   = targets.length;
+
+  // ARに製品名を表示するマッピングを構築
+  const displayData = {};
+  pickedItems.filter(function(i){ return selectedIds.has(i.id); }).forEach(function(i) {
+    if (i.ccCode) displayData[i.ccCode] = i.productName || i.barcode || i.ccCode;
+  });
+
+  try {
+    var reader = new IroatoReader('cc', {
+      mode:         IroatoReader.multi,
+      resolution:   IroatoReader.r1280x720,
+      labelText:    '出荷確認 - まとめスキャン（' + remaining + '件）',
+      lineColor:    IroatoReader.green,
+      lineWidth:    10,
+      errLineColor: IroatoReader.red,
+      searchCodes:  searchCodes,
+      displayData:  Object.keys(displayData).length > 0 ? displayData : undefined,
+    });
+    reader.read(function(res) {
+      if (!res || !res.status || !res.data || !res.data.codes || res.data.codes.length === 0) {
+        toast('スキャンがキャンセルされました', 'warning');
+        return;
+      }
+      var codes = res.data.codes.map(function(c){ return c.code; }).filter(Boolean);
+      handleMultipleCCScan(codes);
+    });
+  } catch(e) {
+    // IroatoReader環境外 - 手動入力（カンマ区切り）
+    var manual = prompt('CCコードをカンマ区切りで入力（出荷確認）\n例: 90,91,92');
+    if (manual && manual.trim()) {
+      var codes = manual.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      handleMultipleCCScan(codes);
+    }
+  }
+}
+
+// ── CCまとめ読み結果処理
+function handleMultipleCCScan(codes) {
+  var matched = 0;
+  var notFound = [];
+
+  codes.forEach(function(scannedCC) {
+    const targets = pickedItems.filter(function(i){ return selectedIds.has(i.id) && !confirmedIds.has(i.id); });
+    const match   = targets.find(function(i){ return i.ccCode === scannedCC; });
+
+    if (match) {
+      confirmedIds.add(match.id);
+      matched++;
+      // UIフラッシュ
+      var el = document.getElementById('srow2-' + match.id);
+      if (el) {
+        el.classList.add('confirmed', 'just-scanned');
+        el.classList.remove('selected');
+        el.querySelector('.ship-check').textContent = '✓';
+        setTimeout(function(){ el.classList.remove('just-scanned'); }, 1200);
+      }
+    } else {
+      const alreadyConf = pickedItems.find(function(i){ return i.ccCode === scannedCC && confirmedIds.has(i.id); });
+      if (!alreadyConf) notFound.push(scannedCC);
+    }
+  });
+
+  if (matched > 0) {
+    toast('✓ ' + matched + '件を確認しました', 'success');
+  }
+  if (notFound.length > 0) {
+    toast('リスト外のCCコード: ' + notFound.length + '件', 'warning');
+  }
+  if (matched === 0 && notFound.length === 0) {
+    toast('すでにスキャン済みの製品です', 'warning');
+  }
+
+  renderStep2();
+}
+
+// ── CC未登録品をスキップして全確認扱いにする
+function skipNoCCItems() {
+  var noCCItems = pickedItems.filter(function(i){ return selectedIds.has(i.id) && !i.ccCode && !confirmedIds.has(i.id); });
+  noCCItems.forEach(function(i){ confirmedIds.add(i.id); });
+  toast(noCCItems.length + '件をスキップしました', 'warning');
+  renderStep2();
+}
+
+// ============================================================
+// STEP 3: 出荷確定
+// ============================================================
+function confirmShipment() {
+  const targets = pickedItems.filter(function(i){ return selectedIds.has(i.id); });
+  const now     = new Date();
+  const nowStr  = formatDateTime(now);
+  const dateStr = formatDate(now);
+
+  // wms_items 更新
+  var items = getItems();
+  targets.forEach(function(target) {
+    var idx = items.findIndex(function(i){ return i.id === target.id; });
+    if (idx >= 0) {
+      items[idx] = WMSAuth.updateAuditFields(Object.assign({}, items[idx], {
+        status:      'shipped',
+        shippedAt:   nowStr,
+        shippedDate: dateStr,
+      }));
+    }
+  });
+  saveItems(items);
+
+  // トランザクションログ
+  try {
+    var txs = JSON.parse(localStorage.getItem(KEY_TRANS) || '[]');
+    txs.push({
+      id:        genId(),
+      type:      'ship',
+      itemCount: targets.length,
+      itemIds:   targets.map(function(i){ return i.id; }),
+      at:        nowStr,
+    });
+    localStorage.setItem(KEY_TRANS, JSON.stringify(txs));
+  } catch(e) {}
+
+  // 完了画面へ
+  showShippedComplete(targets.length, nowStr);
+}
+
+function showShippedComplete(count, at) {
+  document.getElementById('step2Label').className = 'step-item done';
+  document.getElementById('step3Label').className = 'step-item done';
+  document.getElementById('progressArea').style.display = 'none';
+  document.getElementById('headerSub').textContent = '出荷確定完了';
+
+  removeFooter();
+
+  const content = document.getElementById('mainContent');
+  content.innerHTML = `
+    <div class="complete-card">
+      <div class="complete-icon">🚚</div>
+      <div class="complete-title">出荷確定完了！</div>
+      <div class="complete-sub">${count}件の出荷を確定しました<br><span style="font-size:12px;">${esc(at)}</span></div>
+    </div>
+  `;
+
+  removeFooter();
+  const footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'fixed-footer';
+  footer.innerHTML = `
+    <button class="big-btn green" onclick="startOver()">
+      ➕ 続けて出荷処理
+    </button>
+    <button class="big-btn outline" onclick="window.location.href='index.html'">
+      🏠 メニューへ戻る
+    </button>
+  `;
+  document.body.appendChild(footer);
+}
+
+function startOver() {
+  loadPickedItems();
+  renderStep1();
+}
+
+// ============================================================
+// BACK
+// ============================================================
+function handleBack() {
+  if (currentStep === 2) {
+    if (confirmedIds.size > 0) {
+      if (!confirm('スキャン確認途中です。対象確認に戻りますか？')) return;
+    }
+    renderStep1();
+  } else if (currentStep === 1) {
+    window.location.href = 'index.html';
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
+// ============================================================
+// DATA ACCESS
+// ============================================================
+function getItems() {
+  try { return JSON.parse(localStorage.getItem(KEY_ITEMS) || '[]'); }
+  catch(e) { return []; }
+}
+function saveItems(items) {
+  localStorage.setItem(KEY_ITEMS, JSON.stringify(items));
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function removeFooter() {
+  var old = document.getElementById('dynamicFooter');
+  if (old) old.remove();
+}
+
+function toast(msg, type) {
+  type = type || 'success';
+  var icons = { success: '✓', error: '✕', warning: '⚠' };
+  var el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span>' + (icons[type] || 'i') + '</span> ' + String(msg);
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(function(){ el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2700);
+  setTimeout(function(){ el.remove(); }, 3000);
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+}
+function formatDate(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate());
+}
+function formatDateTime(d) {
+  return formatDate(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

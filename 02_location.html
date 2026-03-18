@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IroatoWMS - ロケーション登録</title>
+<script src="auth.js?v=3"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+    background: #f0f4f0;
+    color: #222;
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ヘッダー */
+  .header {
+    background: #2d7a4f;
+    color: white;
+    padding: 12px 16px 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-row { display: flex; align-items: center; gap: 10px; }
+  .header h1 { font-size: 17px; font-weight: 700; flex: 1; text-align: center; }
+  .back-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* ロケーションバナー */
+  .location-banner {
+    background: white;
+    border-bottom: 3px solid #2d7a4f;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .loc-label { font-size: 12px; font-weight: 600; color: #888; flex-shrink: 0; }
+  .loc-value { font-size: 16px; font-weight: 700; color: #1a3a2a; flex: 1; }
+  .loc-code { font-size: 12px; color: #888; font-family: monospace; }
+  .btn-change-loc {
+    background: #e8f4e8;
+    border: 1px solid #b2dfcd;
+    color: #2d7a4f;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ステップインジケーター */
+  .step-indicator {
+    display: flex;
+    padding: 12px 16px 8px;
+  }
+  .step-dot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+  }
+  .step-dot:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: #ddd;
+  }
+  .step-dot.active::after, .step-dot.done::after { background: #2d7a4f; }
+  .step-circle {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    color: #aaa;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+    transition: background 0.3s;
+  }
+  .step-dot.active .step-circle { background: #2d7a4f; color: white; }
+  .step-dot.done .step-circle { background: #4a9d72; color: white; }
+  .step-label { font-size: 10px; color: #aaa; margin-top: 3px; text-align: center; white-space: nowrap; }
+  .step-dot.active .step-label { color: #2d7a4f; font-weight: 600; }
+
+  /* コンテンツ */
+  .content { padding: 12px 16px; }
+
+  /* カード */
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 15px; font-weight: 700; color: #1a3a2a;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* スキャンボタン */
+  .scan-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(45,122,79,0.35);
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .scan-btn:active { opacity: 0.85; transform: scale(0.99); }
+  .scan-btn.scanning { background: linear-gradient(135deg, #888, #aaa); box-shadow: none; }
+
+  /* 製品リスト */
+  .product-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .product-item {
+    background: #f5faf5;
+    border: 1px solid #c8e6c9;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+  .item-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #2d7a4f; color: white;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-size: 14px; font-weight: 600; color: #1a3a2a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-cc { font-size: 11px; color: #888; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-status {
+    font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; flex-shrink: 0;
+  }
+  .item-status.ok { background: #e8f4e8; color: #2d7a4f; }
+  .item-status.warn { background: #fff3e0; color: #e65100; }
+  .item-status.new { background: #e8f4ff; color: #1565c0; }
+  .item-del { color: #ccc; font-size: 18px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+  .item-del:hover { color: #c44; }
+
+  /* 手動入力 */
+  .manual-input { display: flex; gap: 8px; margin-top: 10px; }
+  .manual-input input {
+    flex: 1; padding: 10px 12px;
+    border: 2px solid #e0e0e0; border-radius: 10px;
+    font-size: 14px; background: #fafafa;
+  }
+  .manual-input input:focus { outline: none; border-color: #2d7a4f; background: white; }
+  .manual-input button {
+    padding: 10px 16px;
+    background: #e8f4e8; border: 1px solid #b2dfcd;
+    border-radius: 10px; font-size: 14px; font-weight: 600; color: #2d7a4f; cursor: pointer;
+  }
+
+  /* アクションバー */
+  .action-bar {
+    position: sticky; bottom: 0;
+    background: white; border-top: 1px solid #eee;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    display: flex; gap: 10px;
+  }
+  .btn-cancel {
+    flex: 1; padding: 14px;
+    background: #f5f5f5; border: 1px solid #ddd;
+    border-radius: 12px; font-size: 15px; font-weight: 600; color: #666; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-confirm {
+    flex: 2; padding: 14px;
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72);
+    border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 700; color: white; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(45,122,79,0.3);
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s;
+  }
+  .btn-confirm:disabled { opacity: 0.4; }
+
+  /* ステップ表示制御 */
+  .step-section { display: none; }
+  .step-section.active { display: block; }
+
+  /* 完了画面 */
+  .complete-card { text-align: center; padding: 30px 20px; }
+  .complete-icon { font-size: 60px; margin-bottom: 12px; }
+  .complete-title { font-size: 20px; font-weight: 700; color: #1a3a2a; margin-bottom: 8px; }
+  .complete-sub { font-size: 14px; color: #666; margin-bottom: 20px; }
+  .complete-actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn-next {
+    padding: 16px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-next.primary {
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72); color: white;
+    box-shadow: 0 4px 14px rgba(45,122,79,0.3);
+  }
+  .btn-next.secondary { background: #f0f0f0; color: #555; }
+
+  /* 警告バナー */
+  .warn-banner {
+    background: #fff3e0; border: 1px solid #ffb74d;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; color: #e65100;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* スピナー */
+  .spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* トースト */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #1a3a2a; color: white;
+    padding: 10px 22px; border-radius: 24px;
+    font-size: 14px; font-weight: 600;
+    opacity: 0; transition: opacity 0.3s;
+    z-index: 9999; white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* PC環境バッジ */
+  .pc-badge {
+    background: #fff3e0; border: 1px solid #ffb74d;
+    border-radius: 8px; padding: 6px 12px;
+    font-size: 12px; color: #e65100;
+    text-align: center; margin-bottom: 10px;
+  }
+
+  /* 最近使用 */
+  .recent-item {
+    display: flex; align-items: center; padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0; cursor: pointer;
+  }
+  .recent-item:last-child { border-bottom: none; }
+  .recent-item:hover { background: #f9fdf9; }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <div class="header-row">
+    <a href="index.html" class="back-btn">← 戻る</a>
+    <h1>📍 ロケーション登録</h1>
+    <div id="userBadge" style="font-size:11px;"></div>
+  </div>
+</div>
+
+<!-- ロケーションバナー -->
+<div class="location-banner" id="locationBanner" style="display:none;">
+  <div class="loc-label">登録先:</div>
+  <div style="flex:1;">
+    <div class="loc-value" id="bannerLocName">-</div>
+    <div class="loc-code" id="bannerLocCode"></div>
+  </div>
+  <button class="btn-change-loc" onclick="backToStep1()">変更</button>
+</div>
+
+<!-- ステップインジケーター -->
+<div class="step-indicator">
+  <div class="step-dot active" id="dot1">
+    <div class="step-circle">1</div>
+    <div class="step-label">ロケーションCC</div>
+  </div>
+  <div class="step-dot" id="dot2">
+    <div class="step-circle">2</div>
+    <div class="step-label">製品スキャン</div>
+  </div>
+  <div class="step-dot" id="dot3">
+    <div class="step-circle">3</div>
+    <div class="step-label">確認・登録</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- STEP1 -->
+  <div class="step-section active" id="step1">
+    <div class="card">
+      <div class="card-title">🏷️ STEP 1 - ロケーションCCをスキャン</div>
+      <p style="font-size:14px;color:#666;margin-bottom:16px;">
+        登録先のロケーションに貼付されたCCコードをスキャンしてください。
+      </p>
+      <div id="pcBadge1" class="pc-badge" style="display:none;">
+        ⚠️ PC環境：手動入力モードで動作しています
+      </div>
+      <button class="scan-btn" id="scanLocBtn" onclick="scanLocation()">
+        📷 ロケーションCCをスキャン
+      </button>
+      <div class="manual-input" id="locManualInput" style="display:none;">
+        <input type="text" id="locCCInput" placeholder="CCコードまたはロケーションコード">
+        <button onclick="manualInputLoc()">決定</button>
+      </div>
+    </div>
+
+    <div class="card" id="recentLocCard" style="display:none;">
+      <div class="card-title">🕐 最近使用したロケーション</div>
+      <div id="recentLocList"></div>
+    </div>
+  </div>
+
+  <!-- STEP2 -->
+  <div class="step-section" id="step2">
+    <div class="card">
+      <div class="card-title">📦 STEP 2 - 製品CCをスキャン（複数可）</div>
+      <p style="font-size:14px;color:#666;margin-bottom:12px;">
+        製品のCCコードを読み取ってください。<br>
+        <strong>複数スキャン対応</strong>：同時に複数の製品をまとめてスキャンできます。
+      </p>
+      <div id="pcBadge2" class="pc-badge" style="display:none;">
+        ⚠️ PC環境：手動入力モードで動作しています
+      </div>
+
+      <div class="product-list" id="productList"></div>
+      <div id="emptyProductMsg" style="text-align:center;color:#bbb;padding:16px 0;font-size:14px;">
+        製品CCをスキャンしてください
+      </div>
+
+      <button class="scan-btn" id="scanProductBtn" onclick="scanProducts()" style="margin-top:14px;">
+        📷 製品CCをスキャン（複数可）
+      </button>
+      <div class="manual-input" id="productManualInput" style="display:none;">
+        <input type="text" id="productCCInput" placeholder="CCコード（カンマ区切りで複数可）">
+        <button onclick="manualInputProduct()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP3 -->
+  <div class="step-section" id="step3">
+    <div class="card">
+      <div class="card-title">✅ STEP 3 - 確認・登録</div>
+      <div style="background:#e8f4e8;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:12px;color:#666;margin-bottom:4px;">登録先ロケーション</div>
+        <div style="font-size:17px;font-weight:700;color:#1a3a2a;" id="confirmLocName">-</div>
+        <div style="font-size:12px;color:#888;font-family:monospace;" id="confirmLocCode"></div>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;">登録する製品：</div>
+      <div id="confirmProductList"></div>
+      <div id="warnMessages"></div>
+    </div>
+  </div>
+
+  <!-- 完了画面 -->
+  <div class="step-section" id="stepComplete">
+    <div class="card complete-card">
+      <div class="complete-icon">✅</div>
+      <div class="complete-title">登録完了！</div>
+      <div class="complete-sub" id="completeMsg">-</div>
+      <div class="complete-actions">
+        <button class="btn-next primary" onclick="continueCurrentLoc()">
+          📦 同じロケーションに続けて登録
+        </button>
+        <button class="btn-next secondary" onclick="backToStep1()">
+          🔄 別のロケーションを登録
+        </button>
+        <button class="btn-next secondary" onclick="window.location.href='index.html'">
+          🏠 メニューへ戻る
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- アクションバー -->
+<div class="action-bar" id="actionBar" style="display:none;">
+  <button class="btn-cancel" onclick="actionCancel()">← 戻る</button>
+  <button class="btn-confirm" id="actionConfirmBtn" onclick="actionConfirm()">次へ →</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  定数・状態
+// ============================================================
+const ITEMS_KEY = 'wms_items';
+const LOCATION_MASTER_KEY = 'wms_location_master';
+const TRANSACTIONS_KEY = 'wms_transactions';
+const RECENT_LOC_KEY = 'wms_recent_locations';
+
+let currentStep = 1;
+let currentLocCC = '';
+let currentLocCode = '';
+let currentLocName = '';
+let scannedProducts = [];
+let iroatoAvailable = false;
+
+// ============================================================
+//  初期化
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  const session = WMSAuth.requireAuth('auth.html');
+  if (!session) return;
+
+  // ユーザーバッジ
+  const el = document.getElementById('userBadge');
+  el.innerHTML = `<span style="background:rgba(255,255,255,0.2);border-radius:10px;padding:3px 8px;">👤 ${esc(session.userName)}</span>`;
+
+  // IroatoReader判定
+  try {
+    if (typeof IroatoReader !== 'undefined') iroatoAvailable = true;
+  } catch(e) {}
+
+  if (!iroatoAvailable) {
+    document.getElementById('pcBadge1').style.display = 'block';
+    document.getElementById('pcBadge2').style.display = 'block';
+    document.getElementById('locManualInput').style.display = 'flex';
+    document.getElementById('productManualInput').style.display = 'flex';
+  }
+
+  renderRecentLocations();
+});
+
+// ============================================================
+//  ロケーションマスタ参照
+// ============================================================
+function getLocationMaster() {
+  const raw = localStorage.getItem(LOCATION_MASTER_KEY);
+  return raw ? JSON.parse(raw).filter(l => !l.deletedAt) : [];
+}
+function findLocationByCC(ccCode) {
+  return getLocationMaster().find(l => l.ccCode === ccCode) || null;
+}
+function findLocationByCode(code) {
+  return getLocationMaster().find(l => l.code === code) || null;
+}
+
+// ============================================================
+//  STEP1: 棚スキャン
+// ============================================================
+function scanLocation() {
+  if (!iroatoAvailable) {
+    document.getElementById('locManualInput').style.display = 'flex';
+    document.getElementById('locCCInput').focus();
+    return;
+  }
+  const btn = document.getElementById('scanLocBtn');
+  btn.classList.add('scanning');
+  btn.innerHTML = '<div class="spinner"></div> スキャン中...';
+
+  const master = getLocationMaster();
+  const searchCodes = master.map(l => l.ccCode).filter(c => c);
+  const options = {
+    mode:         IroatoReader.single,
+    analyzeLevel: 5,
+    lineColor:    IroatoReader.green,
+    lineWidth:    10,
+    errLineColor: IroatoReader.red,
+    buttonText:   'ロケーションCCスキャン完了'
+  };
+  if (searchCodes.length > 0) {
+    options.searchCodes = searchCodes;
+    // ARにロケーション名を表示
+    const displayData = {};
+    master.forEach(l => { if (l.ccCode) displayData[l.ccCode] = l.name || l.code; });
+    if (Object.keys(displayData).length > 0) options.displayData = displayData;
+  }
+
+  const reader = new IroatoReader('cc', options);
+  reader.read((res) => {
+    btn.classList.remove('scanning');
+    btn.innerHTML = '📷 ロケーションCCをスキャン';
+    if (res && res.status && res.data && res.data.codes && res.data.codes.length > 0) {
+      onLocationScanned(res.data.codes[0].code);
+    } else {
+      showToast('⚠️ スキャンがキャンセルされました');
+    }
+  });
+}
+
+function manualInputLoc() {
+  const val = document.getElementById('locCCInput').value.trim();
+  if (!val) { showToast('⚠️ コードを入力してください'); return; }
+  document.getElementById('locCCInput').value = '';
+  onLocationScanned(val);
+}
+
+function onLocationScanned(scannedCode) {
+  let loc = findLocationByCC(scannedCode);
+  if (!loc) loc = findLocationByCode(scannedCode.toUpperCase());
+
+  if (loc) {
+    currentLocCC = loc.ccCode || scannedCode;
+    currentLocCode = loc.code;
+    currentLocName = loc.name;
+  } else {
+    currentLocCC = scannedCode;
+    currentLocCode = scannedCode;
+    currentLocName = scannedCode;
+    showToast('⚠️ マスタ未登録のロケーションです。コードで登録します。');
+  }
+
+  addRecentLocation({ code: currentLocCode, name: currentLocName, ccCode: currentLocCC });
+  goToStep2();
+}
+
+// 最近使用ロケーション
+function addRecentLocation(loc) {
+  const raw = localStorage.getItem(RECENT_LOC_KEY);
+  let recent = raw ? JSON.parse(raw) : [];
+  recent = recent.filter(r => r.code !== loc.code);
+  recent.unshift(loc);
+  recent = recent.slice(0, 6);
+  localStorage.setItem(RECENT_LOC_KEY, JSON.stringify(recent));
+}
+
+function renderRecentLocations() {
+  const raw = localStorage.getItem(RECENT_LOC_KEY);
+  const recent = raw ? JSON.parse(raw) : [];
+  const card = document.getElementById('recentLocCard');
+  const list = document.getElementById('recentLocList');
+  if (recent.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = recent.map(loc => `
+    <div class="recent-item" onclick="selectRecentLoc('${esc(loc.code)}','${esc(loc.name)}','${esc(loc.ccCode||'')}')">
+      <span style="font-size:16px;margin-right:8px;">📍</span>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:600;color:#1a3a2a;">${esc(loc.name)}</div>
+        <div style="font-size:11px;color:#aaa;font-family:monospace;">${esc(loc.code)}</div>
+      </div>
+      <span style="font-size:12px;color:#2d7a4f;font-weight:600;">選択 →</span>
+    </div>
+  `).join('');
+}
+
+function selectRecentLoc(code, name, ccCode) {
+  currentLocCode = code;
+  currentLocName = name;
+  currentLocCC = ccCode;
+  addRecentLocation({ code, name, ccCode });
+  goToStep2();
+}
+
+// ============================================================
+//  ステップ遷移
+// ============================================================
+function goToStep2() {
+  currentStep = 2;
+  scannedProducts = [];
+  updateStepUI();
+  updateLocationBanner();
+  renderProductList();
+}
+
+function goToStep3() {
+  if (scannedProducts.length === 0) {
+    showToast('⚠️ 製品をスキャンしてください');
+    return;
+  }
+  currentStep = 3;
+  updateStepUI();
+  renderConfirm();
+}
+
+function backToStep1() {
+  currentStep = 1;
+  currentLocCC = '';
+  currentLocCode = '';
+  currentLocName = '';
+  scannedProducts = [];
+  document.getElementById('locationBanner').style.display = 'none';
+  updateStepUI();
+  renderRecentLocations();
+}
+
+function updateStepUI() {
+  for (let i = 1; i <= 3; i++) {
+    const s = document.getElementById(`step${i}`);
+    const d = document.getElementById(`dot${i}`);
+    if (s) s.classList.toggle('active', i === currentStep);
+    if (d) {
+      d.classList.toggle('active', i === currentStep);
+      d.classList.toggle('done', i < currentStep);
+    }
+  }
+  document.getElementById('stepComplete').classList.remove('active');
+
+  const bar = document.getElementById('actionBar');
+  const confirmBtn = document.getElementById('actionConfirmBtn');
+  if (currentStep === 2) {
+    bar.style.display = 'flex';
+    confirmBtn.textContent = '確認へ →';
+    confirmBtn.disabled = scannedProducts.length === 0;
+  } else if (currentStep === 3) {
+    bar.style.display = 'flex';
+    confirmBtn.textContent = '✅ 登録実行';
+    confirmBtn.disabled = false;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function actionCancel() {
+  if (currentStep === 2) backToStep1();
+  else if (currentStep === 3) { currentStep = 2; updateStepUI(); }
+}
+function actionConfirm() {
+  if (currentStep === 2) goToStep3();
+  else if (currentStep === 3) saveRegistrations();
+}
+
+function updateLocationBanner() {
+  document.getElementById('locationBanner').style.display = 'flex';
+  document.getElementById('bannerLocName').textContent = currentLocName;
+  document.getElementById('bannerLocCode').textContent = currentLocCode;
+}
+
+// ============================================================
+//  STEP2: 製品CC複数スキャン
+// ============================================================
+function scanProducts() {
+  if (!iroatoAvailable) {
+    document.getElementById('productManualInput').style.display = 'flex';
+    document.getElementById('productCCInput').focus();
+    return;
+  }
+  const btn = document.getElementById('scanProductBtn');
+  btn.classList.add('scanning');
+  btn.innerHTML = '<div class="spinner"></div> スキャン中...';
+
+  // ARに製品名を表示するマッピングを構築
+  const allItems = getItems();
+  const productDisplayData = {};
+  allItems.forEach(i => {
+    if (i.ccCode) productDisplayData[i.ccCode] = i.productName || i.barcode || i.ccCode;
+  });
+
+  const reader = new IroatoReader('cc', {
+    mode:         IroatoReader.multi,
+    analyzeLevel: 5,
+    lineColor:    IroatoReader.green,
+    lineWidth:    10,
+    errLineColor: IroatoReader.red,
+    buttonText:   '製品スキャン完了',
+    displayData:  Object.keys(productDisplayData).length > 0 ? productDisplayData : undefined
+  });
+
+  reader.read((res) => {
+    btn.classList.remove('scanning');
+    btn.innerHTML = '📷 製品CCをスキャン（複数可）';
+
+    if (!res || !res.status || !res.data || !res.data.codes || res.data.codes.length === 0) {
+      showToast('⚠️ スキャンがキャンセルされました');
+      return;
+    }
+
+    // multiモード: res.data.codes配列
+    const codes = res.data.codes.map(c => c.code).filter(Boolean);
+
+    if (codes.length === 0) {
+      showToast('⚠️ 製品が検出されませんでした');
+      return;
+    }
+
+    let addedCount = 0;
+    codes.forEach(code => {
+      if (addScannedProduct(code)) addedCount++;
+    });
+
+    if (addedCount > 0) {
+      showToast(`✅ ${addedCount}件追加しました（合計: ${scannedProducts.length}件）`);
+    }
+
+    // アクションバーのボタン状態更新
+    const confirmBtn = document.getElementById('actionConfirmBtn');
+    if (confirmBtn) confirmBtn.disabled = scannedProducts.length === 0;
+  });
+}
+
+function manualInputProduct() {
+  const raw = document.getElementById('productCCInput').value.trim();
+  if (!raw) return;
+  const codes = raw.split(',').map(c => c.trim()).filter(Boolean);
+  let addedCount = 0;
+  codes.forEach(c => { if (addScannedProduct(c)) addedCount++; });
+  document.getElementById('productCCInput').value = '';
+  if (addedCount > 0) showToast(`✅ ${addedCount}件追加しました`);
+
+  const confirmBtn = document.getElementById('actionConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = scannedProducts.length === 0;
+}
+
+// 製品追加（true=追加成功、false=重複スキップ）
+function addScannedProduct(ccCode) {
+  if (!ccCode) return false;
+  if (scannedProducts.find(p => p.ccCode === ccCode)) {
+    showToast(`⚠️ 既に追加済み: ${ccCode.substring(0, 20)}`);
+    return false;
+  }
+
+  const items = getItems();
+  const item = items.find(i => i.ccCode === ccCode && !i.deletedAt);
+  const productName = item ? (item.productName || item.barcode || item.ccCode) : '（在庫マスタ未登録）';
+
+  // 別ロケーション確認
+  let prevLocName = null;
+  if (item && item.locationCode && item.locationCode !== currentLocCode) {
+    prevLocName = item.locationName || item.locationCode;
+  }
+
+  scannedProducts.push({
+    ccCode,
+    productName,
+    itemId: item ? item.id : null,
+    isNew: !item,
+    prevLocName
+  });
+
+  renderProductList();
+  return true;
+}
+
+function removeScannedProduct(idx) {
+  scannedProducts.splice(idx, 1);
+  renderProductList();
+  const confirmBtn = document.getElementById('actionConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = scannedProducts.length === 0;
+}
+
+function renderProductList() {
+  const list = document.getElementById('productList');
+  const emptyMsg = document.getElementById('emptyProductMsg');
+
+  if (scannedProducts.length === 0) {
+    list.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+
+  list.innerHTML = scannedProducts.map((p, i) => `
+    <div class="product-item">
+      <div class="item-num">${i + 1}</div>
+      <div class="item-info">
+        <div class="item-name">${esc(p.productName)}</div>
+        <div class="item-cc">${esc(p.ccCode.substring(0, 40))}</div>
+        ${p.prevLocName ? `<div style="font-size:11px;color:#e65100;">⚠️ 現在: ${esc(p.prevLocName)}</div>` : ''}
+      </div>
+      <span class="item-status ${p.isNew ? 'new' : p.prevLocName ? 'warn' : 'ok'}">
+        ${p.isNew ? '未登録' : p.prevLocName ? '移動' : '在庫'}
+      </span>
+      <span class="item-del" onclick="removeScannedProduct(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+//  STEP3: 確認
+// ============================================================
+function renderConfirm() {
+  document.getElementById('confirmLocName').textContent = currentLocName;
+  document.getElementById('confirmLocCode').textContent = currentLocCode;
+
+  document.getElementById('confirmProductList').innerHTML = scannedProducts.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+      <span style="background:#2d7a4f;color:white;width:22px;height:22px;border-radius:50%;
+        font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;">${esc(p.productName)}</div>
+        <div style="font-size:11px;color:#aaa;font-family:monospace;">${esc(p.ccCode.substring(0,40))}</div>
+      </div>
+      <span style="font-size:11px;padding:2px 7px;border-radius:10px;font-weight:600;
+        background:${p.prevLocName ? '#fff3e0' : '#e8f4e8'};
+        color:${p.prevLocName ? '#e65100' : '#2d7a4f'};">
+        ${p.prevLocName ? `移動` : p.isNew ? '新規' : '更新'}
+      </span>
+    </div>
+  `).join('');
+
+  const warns = scannedProducts.filter(p => p.prevLocName);
+  document.getElementById('warnMessages').innerHTML = warns.length > 0
+    ? `<div class="warn-banner" style="margin-top:12px;">
+         ⚠️ ${warns.length}件が別ロケーション登録済みです。登録するとロケーションが上書きされます。
+       </div>`
+    : '';
+}
+
+// ============================================================
+//  登録実行
+// ============================================================
+function saveRegistrations() {
+  const items = getItems();
+  const transactions = getTransactions();
+  const now = new Date().toISOString();
+  let savedCount = 0;
+
+  scannedProducts.forEach(product => {
+    if (product.isNew) {
+      // 新規アイテム（在庫マスタ未登録）を仮登録
+      const audit = WMSAuth.newAuditFields();
+      const newItem = {
+        id: 'ITEM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        barcode: '',
+        ccCode: product.ccCode,
+        productName: product.productName,
+        qty: 1,
+        lot: '',
+        note: 'ロケーション登録から仮追加',
+        status: 'located',
+        receivedAt: now,
+        receivedDate: now.split('T')[0],
+        locationCC: currentLocCC,
+        locationCode: currentLocCode,
+        locationName: currentLocName,
+        ...audit
+      };
+      items.push(newItem);
+
+      const txAudit = WMSAuth.newAuditFields();
+      transactions.push({
+        id: 'TX_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        type: 'location',
+        itemId: newItem.id,
+        ccCode: product.ccCode,
+        productName: product.productName,
+        locationCC: currentLocCC,
+        locationCode: currentLocCode,
+        locationName: currentLocName,
+        prevLocationCode: null,
+        prevLocationName: null,
+        timestamp: now,
+        ...txAudit
+      });
+    } else {
+      // 既存アイテム更新
+      const idx = items.findIndex(i => i.id === product.itemId);
+      if (idx !== -1) {
+        const prevCode = items[idx].locationCode || null;
+        const prevName = items[idx].locationName || null;
+        items[idx] = WMSAuth.updateAuditFields({
+          ...items[idx],
+          locationCC: currentLocCC,
+          locationCode: currentLocCode,
+          locationName: currentLocName,
+          status: 'located'
+        });
+
+        const txAudit = WMSAuth.newAuditFields();
+        transactions.push({
+          id: 'TX_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          type: 'location',
+          itemId: product.itemId,
+          ccCode: product.ccCode,
+          productName: product.productName,
+          locationCC: currentLocCC,
+          locationCode: currentLocCode,
+          locationName: currentLocName,
+          prevLocationCode: prevCode,
+          prevLocationName: prevName,
+          timestamp: now,
+          ...txAudit
+        });
+      }
+    }
+    savedCount++;
+  });
+
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+  localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+  showComplete(savedCount);
+}
+
+function showComplete(count) {
+  ['step1','step2','step3'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById('stepComplete').classList.add('active');
+  document.getElementById('actionBar').style.display = 'none';
+  document.getElementById('completeMsg').textContent =
+    `${currentLocName} に ${count}件の製品を登録しました`;
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`dot${i}`).classList.remove('active');
+    document.getElementById(`dot${i}`).classList.add('done');
+  }
+  showToast(`✅ ${count}件を ${currentLocName} に登録しました`);
+}
+
+function continueCurrentLoc() {
+  scannedProducts = [];
+  currentStep = 2;
+  updateStepUI();
+  updateLocationBanner();
+  renderProductList();
+}
+
+// ============================================================
+//  データアクセス
+// ============================================================
+function getItems() {
+  const raw = localStorage.getItem(ITEMS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function getTransactions() {
+  const raw = localStorage.getItem(TRANSACTIONS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+// ============================================================
+//  ユーティリティ
+// ============================================================
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

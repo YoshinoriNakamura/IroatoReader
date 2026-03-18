@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IroatoWMS - ロケーションマスタ</title>
+<script src="auth.js?v=3"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    background: #f0f4f0;
+    color: #222;
+    min-height: 100vh;
+  }
+  /* ヘッダー */
+  .header {
+    background: linear-gradient(135deg, #1a3a2a, #2d7a4f);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .back-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.3); }
+  /* ユーザーバッジ */
+  #userBadge { display: flex; align-items: center; }
+  /* メインコンテンツ */
+  .container {
+    max-width: 1000px;
+    margin: 24px auto;
+    padding: 0 20px;
+  }
+  /* 追加フォームカード */
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a3a2a;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e8f4e8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 14px;
+    align-items: end;
+  }
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 5px;
+  }
+  .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #222;
+    background: #fafafa;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus {
+    outline: none;
+    border-color: #2d7a4f;
+    background: white;
+  }
+  .required { color: #e44; margin-left: 2px; }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn:active { opacity: 0.8; transform: scale(0.98); }
+  .btn-primary {
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72);
+    color: white;
+    box-shadow: 0 3px 10px rgba(45,122,79,0.3);
+  }
+  .btn-secondary {
+    background: #f0f0f0;
+    color: #555;
+  }
+  .btn-danger {
+    background: #fee;
+    color: #c44;
+    border: 1px solid #fcc;
+  }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  /* テーブル */
+  .table-container { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th {
+    background: #f5faf5;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2d7a4f;
+    border-bottom: 2px solid #d4eada;
+    white-space: nowrap;
+  }
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fdf9; }
+  .code-badge {
+    font-family: monospace;
+    background: #e8f4e8;
+    color: #1a6a3a;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .cc-badge {
+    font-family: monospace;
+    background: #f0e8ff;
+    color: #5a2d9a;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  .empty-msg {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 15px;
+  }
+  .audit-info {
+    font-size: 11px;
+    color: #aaa;
+  }
+  /* メッセージ */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a3a2a;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 9999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  /* 編集モーダル */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a3a2a;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e8f4e8;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  /* 検索 */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .search-bar input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    background: #fafafa;
+  }
+  .search-bar input:focus {
+    outline: none;
+    border-color: #2d7a4f;
+    background: white;
+  }
+  .count-badge {
+    background: #e8f4e8;
+    color: #2d7a4f;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  /* プリセットロケーション */
+  .preset-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .preset-tag {
+    background: #e8f4e8;
+    border: 1px solid #b2dfcd;
+    color: #2d7a4f;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .preset-tag:hover { background: #d0ebd8; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <a href="index.html" class="back-btn">← メニュー</a>
+    <h1>📍 ロケーションマスタ</h1>
+  </div>
+  <div id="userBadge"></div>
+</div>
+
+<div class="container">
+
+  <!-- 追加フォーム -->
+  <div class="card">
+    <div class="card-title">➕ ロケーション登録</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ロケーションコード <span class="required">*</span></label>
+        <input type="text" id="newCode" placeholder="例: LOC-001" maxlength="20"
+          oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-group">
+        <label>ロケーション名 <span class="required">*</span></label>
+        <input type="text" id="newName" placeholder="例: A棚-1段">
+      </div>
+      <div class="form-group">
+        <label>カメレオンコード（CCコード）</label>
+        <input type="text" id="newCCCode" placeholder="CCコード文字列（任意）">
+      </div>
+    </div>
+
+    <!-- プリセット -->
+    <div style="margin-top:14px;">
+      <div style="font-size:12px;color:#888;font-weight:600;margin-bottom:6px;">クイック登録プリセット（前回設定より）</div>
+      <div class="preset-list" id="presetList"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="clearForm()">クリア</button>
+      <button class="btn btn-primary" onclick="addLocation()">✅ 登録する</button>
+    </div>
+  </div>
+
+  <!-- 一覧 -->
+  <div class="card">
+    <div class="card-title">
+      📋 ロケーション一覧
+      <span class="count-badge" id="countBadge">0 件</span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="コード・名前・CCコードで検索..."
+        oninput="renderTable()">
+      <button class="btn btn-danger btn-sm" onclick="clearAllLocations()">全削除</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ロケーションコード</th>
+            <th>ロケーション名</th>
+            <th>CCコード</th>
+            <th>登録日時</th>
+            <th>登録者</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-msg" id="emptyMsg" style="display:none;">
+        📭 ロケーションが登録されていません
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 編集モーダル -->
+<div class="modal-overlay" id="editModal" style="display:none;" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">✏️ ロケーション編集</div>
+    <input type="hidden" id="editId">
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>ロケーションコード <span class="required">*</span></label>
+      <input type="text" id="editCode" maxlength="20" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>ロケーション名 <span class="required">*</span></label>
+      <input type="text" id="editName">
+    </div>
+    <div class="form-group">
+      <label>カメレオンコード（CCコード）</label>
+      <input type="text" id="editCCCode" placeholder="CCコード（任意）">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('editModal').style.display='none'">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LOCATION_MASTER_KEY = 'wms_location_master';
+
+// 認証チェック
+const session = WMSAuth.requireAuth('auth.html');
+if (session) {
+  WMSAuth.renderUserBadge('userBadge');
+}
+
+// ロケーションマスタ取得
+function getLocations() {
+  const raw = localStorage.getItem(LOCATION_MASTER_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+// ロケーションマスタ保存
+function saveLocations(locations) {
+  localStorage.setItem(LOCATION_MASTER_KEY, JSON.stringify(locations));
+}
+
+// 追加
+function addLocation() {
+  const code = document.getElementById('newCode').value.trim().toUpperCase();
+  const name = document.getElementById('newName').value.trim();
+  const ccCode = document.getElementById('newCCCode').value.trim();
+
+  if (!code) { showToast('⚠️ ロケーションコードを入力してください'); return; }
+  if (!name) { showToast('⚠️ ロケーション名を入力してください'); return; }
+
+  const locations = getLocations();
+  if (locations.find(l => l.code === code && !l.deletedAt)) {
+    showToast('⚠️ このロケーションコードは既に登録されています');
+    return;
+  }
+
+  const audit = WMSAuth.newAuditFields();
+  const loc = {
+    id: 'LOC_' + Date.now(),
+    code,
+    name,
+    ccCode: ccCode || '',
+    ...audit
+  };
+
+  locations.push(loc);
+  saveLocations(locations);
+  clearForm();
+  renderTable();
+  renderPresets();
+  showToast(`✅ ${name}（${code}）を登録しました`);
+}
+
+// フォームクリア
+function clearForm() {
+  document.getElementById('newCode').value = '';
+  document.getElementById('newName').value = '';
+  document.getElementById('newCCCode').value = '';
+}
+
+// 編集モーダルを開く
+function openEdit(id) {
+  const locations = getLocations();
+  const loc = locations.find(l => l.id === id);
+  if (!loc) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('editCode').value = loc.code;
+  document.getElementById('editName').value = loc.name;
+  document.getElementById('editCCCode').value = loc.ccCode || '';
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal(event) {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+// 編集保存
+function saveEdit() {
+  const id = document.getElementById('editId').value;
+  const code = document.getElementById('editCode').value.trim().toUpperCase();
+  const name = document.getElementById('editName').value.trim();
+  const ccCode = document.getElementById('editCCCode').value.trim();
+
+  if (!code || !name) { showToast('⚠️ コードと名前は必須です'); return; }
+
+  const locations = getLocations();
+  const idx = locations.findIndex(l => l.id === id);
+  if (idx === -1) return;
+
+  // 重複チェック（自分以外）
+  if (locations.find(l => l.code === code && l.id !== id && !l.deletedAt)) {
+    showToast('⚠️ このロケーションコードは既に使用されています');
+    return;
+  }
+
+  locations[idx] = WMSAuth.updateAuditFields({
+    ...locations[idx],
+    code,
+    name,
+    ccCode: ccCode || ''
+  });
+
+  saveLocations(locations);
+  document.getElementById('editModal').style.display = 'none';
+  renderTable();
+  showToast(`✅ ${name} を更新しました`);
+}
+
+// 論理削除
+function deleteLocation(id) {
+  const locations = getLocations();
+  const loc = locations.find(l => l.id === id);
+  if (!loc) return;
+  if (!confirm(`「${loc.name}（${loc.code}）」を削除しますか？`)) return;
+
+  const idx = locations.findIndex(l => l.id === id);
+  locations[idx] = WMSAuth.deleteAuditFields(locations[idx]);
+  saveLocations(locations);
+  renderTable();
+  showToast(`🗑️ ${loc.name} を削除しました`);
+}
+
+// 全削除（確認あり）
+function clearAllLocations() {
+  const locations = getLocations().filter(l => !l.deletedAt);
+  if (locations.length === 0) { showToast('削除するデータがありません'); return; }
+  if (!confirm(`全ロケーション（${locations.length}件）を削除しますか？この操作は取り消せません。`)) return;
+  const userName = WMSAuth.getCurrentUserName();
+  const now = new Date().toISOString();
+  const allLocs = getLocations().map(l => ({
+    ...l,
+    deletedAt: l.deletedAt || now,
+    deletedBy: l.deletedBy || userName,
+    updatedAt: now,
+    updatedBy: userName
+  }));
+  saveLocations(allLocs);
+  renderTable();
+  showToast('🗑️ 全ロケーションを削除しました');
+}
+
+// テーブル描画
+function renderTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const all = getLocations().filter(l => !l.deletedAt);
+  const filtered = q
+    ? all.filter(l =>
+        l.code.toLowerCase().includes(q) ||
+        l.name.toLowerCase().includes(q) ||
+        (l.ccCode || '').toLowerCase().includes(q)
+      )
+    : all;
+
+  document.getElementById('countBadge').textContent = `${all.length} 件`;
+
+  const tbody = document.getElementById('tableBody');
+  const emptyMsg = document.getElementById('emptyMsg');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(loc => `
+    <tr>
+      <td><span class="code-badge">${esc(loc.code)}</span></td>
+      <td style="font-weight:600;">${esc(loc.name)}</td>
+      <td>
+        ${loc.ccCode
+          ? `<span class="cc-badge" title="${esc(loc.ccCode)}">${esc(loc.ccCode.substring(0,30))}${loc.ccCode.length>30?'…':''}</span>`
+          : '<span style="color:#ccc;font-size:12px;">未設定</span>'}
+      </td>
+      <td class="audit-info">${fmtDate(loc.createdAt)}</td>
+      <td class="audit-info">${esc(loc.createdBy || '-')}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="openEdit('${loc.id}')" style="margin-right:6px;">✏️ 編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLocation('${loc.id}')">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// プリセット描画（よく使うコード一覧）
+function renderPresets() {
+  const locations = getLocations().filter(l => !l.deletedAt);
+  const container = document.getElementById('presetList');
+  if (locations.length === 0) {
+    container.innerHTML = '<span style="color:#ccc;font-size:12px;">登録済みロケーションなし</span>';
+    return;
+  }
+  container.innerHTML = locations.slice(0, 12).map(loc => `
+    <span class="preset-tag" onclick="fillPreset('${esc(loc.code)}','${esc(loc.name)}','${esc(loc.ccCode||'')}')">
+      ${esc(loc.name)}
+    </span>
+  `).join('');
+}
+
+function fillPreset(code, name, ccCode) {
+  document.getElementById('newCode').value = code;
+  document.getElementById('newName').value = name;
+  document.getElementById('newCCCode').value = ccCode;
+}
+
+// ユーティリティ
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// 初期化
+renderTable();
+renderPresets();
+</script>
+</body>
+</html>

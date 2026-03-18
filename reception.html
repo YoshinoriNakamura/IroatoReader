@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>受付システム</title>
+<style>
+  :root {
+    --primary: #0f172a;
+    --primary-light: #1e293b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-light: #dbeafe;
+    --success: #10b981;
+    --success-bg: #d1fae5;
+    --danger: #ef4444;
+    --danger-bg: #fee2e2;
+    --warning: #f59e0b;
+    --warning-bg: #fef3c7;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+    --shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.08);
+    --radius: 16px;
+    --radius-sm: 12px;
+    --radius-xs: 8px;
+    --depart-color: #3b82f6;
+    --return-color: #10b981;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    font-size: 16px; color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff;
+    padding: 16px 20px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: var(--shadow-lg);
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+  .header-sub { font-size: 12px; opacity: .6; margin-top: 2px; font-weight: 400; }
+  .admin-btn {
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: var(--radius-xs);
+    color: #fff; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    cursor: pointer; backdrop-filter: blur(4px);
+    transition: background .2s;
+  }
+  .admin-btn:active { background: rgba(255,255,255,.2); }
+  .back-btn {
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: var(--radius-xs);
+    color: #fff; padding: 8px 14px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .2s;
+  }
+  .back-btn:active { background: rgba(255,255,255,.2); }
+
+  /* ── MAIN ── */
+  .main { padding: 20px; max-width: 520px; margin: 0 auto; }
+
+  /* ── VIEW TRANSITIONS ── */
+  .view { display: none; animation: fadeIn .35s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+
+  /* ── HOME SCREEN ── */
+  .home-title {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-top: 20px;
+  }
+  .home-title h2 {
+    font-size: 28px; font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .home-title p {
+    font-size: 15px; color: var(--text-secondary);
+  }
+
+  .choice-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .choice-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s ease;
+    box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
+  }
+  .choice-card:active { transform: scale(.97); }
+  .choice-card:hover { box-shadow: var(--shadow-xl); }
+  .choice-card.depart { border-color: var(--depart-color); }
+  .choice-card.depart:hover { background: #eff6ff; }
+  .choice-card.return { border-color: var(--return-color); }
+  .choice-card.return:hover { background: #ecfdf5; }
+  .choice-icon {
+    font-size: 52px;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .choice-label {
+    font-size: 22px; font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .choice-card.depart .choice-label { color: var(--depart-color); }
+  .choice-card.return .choice-label { color: var(--return-color); }
+  .choice-desc {
+    font-size: 13px; color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .home-status {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .home-status-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0;
+  }
+  .home-status-label { font-size: 13px; color: var(--text-secondary); }
+  .home-status-value { font-size: 15px; font-weight: 700; }
+  .home-status-value.departing { color: var(--depart-color); }
+  .home-status-value.returning { color: var(--return-color); }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    animation: slideUp .3s ease;
+  }
+  .card-title {
+    font-size: 12px; font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* ── STEP INDICATOR ── */
+  .step-indicator {
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    gap: 0;
+  }
+  .si-step {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 56px;
+  }
+  .si-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px;
+    background: var(--border); color: #fff;
+    transition: all .3s;
+  }
+  .si-step.done .si-dot { background: var(--success); }
+  .si-step.active .si-dot { background: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,.2); }
+  .si-label { font-size: 10px; color: var(--text-muted); margin-top: 6px; font-weight: 600; text-align: center; }
+  .si-step.active .si-label { color: var(--accent); }
+  .si-step.done .si-label { color: var(--success); }
+  .si-line { flex: 1; height: 2px; background: var(--border); margin: 0 4px; margin-bottom: 20px; max-width: 50px; }
+  .si-line.done { background: var(--success); }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px; display: block;
+  }
+  .form-input-wrap {
+    position: relative;
+  }
+  .form-input {
+    width: 100%; padding: 14px 16px;
+    border: 2px solid var(--border); border-radius: var(--radius-xs);
+    font-size: 18px; font-weight: 500;
+    background: var(--surface); color: var(--text);
+    -webkit-appearance: none;
+    transition: border-color .2s;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+  .form-input.has-mic { padding-right: 50px; }
+  .mic-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 38px; height: 38px;
+    border: none; border-radius: 50%;
+    background: var(--accent-light); color: var(--accent);
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+  }
+  .mic-btn:active { background: var(--accent); color: #fff; }
+  .mic-btn.recording {
+    background: var(--danger); color: #fff;
+    animation: pulse 1s infinite;
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    width: 100%; padding: 18px;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 17px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all .15s;
+    -webkit-user-select: none;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(59,130,246,.3); }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-success { background: var(--success); color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,.3); }
+  .btn-depart { background: var(--depart-color); color: #fff; box-shadow: 0 4px 14px rgba(59,130,246,.3); }
+  .btn-return { background: var(--return-color); color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,.3); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-outline {
+    background: transparent; color: var(--text-secondary);
+    border: 2px solid var(--border);
+  }
+  .btn-outline:active { background: #f1f5f9; }
+  .btn-sm { padding: 12px; font-size: 14px; border-radius: var(--radius-xs); }
+  .btn-disabled { background: #cbd5e1; color: #fff; pointer-events: none; }
+
+  .btn-group { display: flex; gap: 10px; margin-top: 12px; }
+  .btn-group .btn { flex: 1; }
+
+  /* ── SCAN AREA ── */
+  .scan-area {
+    background: linear-gradient(135deg, #f0f9ff, #eff6ff);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .scan-area:active { background: #dbeafe; }
+  .scan-area.scanned {
+    border-style: solid;
+    border-color: var(--success);
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  }
+  .scan-icon { font-size: 40px; margin-bottom: 8px; }
+  .scan-label { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+  .scan-value {
+    font-size: 24px; font-weight: 800;
+    color: var(--success);
+    margin-top: 8px;
+    word-break: break-all;
+  }
+  .scan-name {
+    font-size: 16px; font-weight: 600;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+
+  /* ── CONFIRM SUMMARY ── */
+  .summary-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .summary-header {
+    padding: 14px 20px;
+    font-size: 13px; font-weight: 700;
+    color: #fff;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .summary-header.depart { background: var(--depart-color); }
+  .summary-header.return { background: var(--return-color); }
+  .summary-body { padding: 8px 0; }
+  .summary-row {
+    display: flex; padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label {
+    width: 110px; flex-shrink: 0;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+  .summary-value {
+    font-size: 16px; font-weight: 600;
+    word-break: break-all;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-sheet {
+    background: var(--surface); width: 100%;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 24px 40px;
+    max-height: 90vh; overflow-y: auto;
+    transform: translateY(100%); transition: transform .35s ease;
+  }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-handle {
+    width: 40px; height: 4px; background: #d1d5db;
+    border-radius: 2px; margin: 0 auto 20px;
+  }
+  .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+  .modal-close {
+    position: absolute; right: 20px; top: 24px;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: none; background: #f1f5f9;
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── ADMIN TABLE ── */
+  .admin-section { margin-bottom: 24px; }
+  .admin-section-title {
+    font-size: 11px; font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px;
+  }
+  .data-table th {
+    background: #f8fafc;
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .data-table tr:hover td { background: #f8fafc; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -24px; padding: 0 24px; }
+
+  .date-filter {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .date-filter input[type="date"] {
+    padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius-xs); font-size: 14px;
+    -webkit-appearance: none;
+  }
+  .date-filter label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+
+  /* ── FILE UPLOAD ── */
+  .file-upload-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: var(--radius-xs);
+    background: var(--accent); color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background .2s;
+  }
+  .file-upload-label:active { background: var(--accent-hover); }
+  .file-upload-label input { display: none; }
+
+  .master-info {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: #f8fafc; border-radius: var(--radius-xs);
+    margin-top: 8px;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .master-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #cbd5e1; flex-shrink: 0;
+  }
+  .master-dot.loaded { background: var(--success); }
+
+  /* ── SETTINGS ROW ── */
+  .settings-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row-label { font-size: 15px; font-weight: 500; }
+  .settings-row-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 20px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-blue { background: var(--accent-light); color: var(--accent); }
+  .badge-green { background: var(--success-bg); color: #065f46; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-red { background: var(--danger-bg); color: var(--danger); }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 300; width: calc(100% - 40px); max-width: 460px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--primary); color: #fff;
+    padding: 16px 20px; border-radius: var(--radius-sm);
+    font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: var(--shadow-xl);
+    animation: toastIn .3s ease;
+    pointer-events: all;
+    margin-top: 8px;
+  }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.error { border-left: 4px solid var(--danger); }
+  .toast.warning { border-left: 4px solid var(--warning); }
+  @keyframes toastIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* ── PASSWORD INPUT ── */
+  .pw-wrap {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .pw-wrap input {
+    flex: 1; padding: 12px 14px;
+    border: 2px solid var(--border); border-radius: var(--radius-xs);
+    font-size: 16px;
+  }
+  .pw-wrap input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 400px) {
+    .choice-grid { grid-template-columns: 1fr; }
+    .choice-card { padding: 24px 16px; }
+  }
+
+  /* ── COMPLETION ANIMATION ── */
+  .completion-view {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .completion-icon {
+    font-size: 72px;
+    margin-bottom: 16px;
+    animation: bounceIn .5s ease;
+  }
+  @keyframes bounceIn {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .completion-title {
+    font-size: 24px; font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .completion-sub {
+    font-size: 15px; color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  /* ── CLOCK ── */
+  .clock {
+    font-size: 14px; opacity: .7;
+    text-align: center; margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ======== HEADER ======== -->
+<div class="header">
+  <div class="header-row">
+    <div>
+      <h1>受付システム</h1>
+      <div class="header-sub" id="headerSub">敷地内作業 入退場管理</div>
+    </div>
+    <button class="admin-btn" id="btnAdminOpen" onclick="openAdminAuth()">管理者</button>
+  </div>
+</div>
+
+<!-- ======== TOAST ======== -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ======== MAIN ======== -->
+<div class="main" id="mainArea">
+
+  <!-- ===== VIEW: HOME ===== -->
+  <div class="view active" id="view-home">
+    <div class="home-title">
+      <div class="clock" id="clockDisplay"></div>
+      <h2>受付へようこそ</h2>
+      <p>ご用件を選択してください</p>
+    </div>
+
+    <div class="choice-grid">
+      <div class="choice-card depart" onclick="startDepart()">
+        <span class="choice-icon">🚗</span>
+        <div class="choice-label">出庫</div>
+        <div class="choice-desc">敷地内へ入場<br>腕章・車両プレートを<br>受け取ります</div>
+      </div>
+      <div class="choice-card return" onclick="startReturn()">
+        <span class="choice-icon">🏠</span>
+        <div class="choice-label">帰庫</div>
+        <div class="choice-desc">敷地外へ退場<br>腕章・車両プレートを<br>返却します</div>
+      </div>
+    </div>
+
+    <div class="home-status">
+      <div class="home-status-row">
+        <span class="home-status-label">本日の出庫中</span>
+        <span class="home-status-value departing" id="homeDepartCount">0 件</span>
+      </div>
+      <div class="home-status-row">
+        <span class="home-status-label">本日の帰庫済</span>
+        <span class="home-status-value returning" id="homeReturnCount">0 件</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: DEPART - NAME INPUT ===== -->
+  <div class="view" id="view-depart-name">
+    <div class="step-indicator">
+      <div class="si-step active" id="ds1"><div class="si-dot">1</div><div class="si-label">名前入力</div></div>
+      <div class="si-line" id="dl1"></div>
+      <div class="si-step" id="ds2"><div class="si-dot">2</div><div class="si-label">腕章</div></div>
+      <div class="si-line" id="dl2"></div>
+      <div class="si-step" id="ds3"><div class="si-dot">3</div><div class="si-label">車両</div></div>
+      <div class="si-line" id="dl3"></div>
+      <div class="si-step" id="ds4"><div class="si-dot">4</div><div class="si-label">確認</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">お名前を入力してください</div>
+      <div class="form-group">
+        <label class="form-label">会社名</label>
+        <div class="form-input-wrap">
+          <input type="text" class="form-input has-mic" id="inputCompany" placeholder="例: インフォファーム" inputmode="text">
+          <button class="mic-btn" id="micCompany" onclick="toggleVoice('inputCompany','micCompany')">🎤</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">お名前</label>
+        <div class="form-input-wrap">
+          <input type="text" class="form-input has-mic" id="inputName" placeholder="例: 山田 太郎" inputmode="text">
+          <button class="mic-btn" id="micName" onclick="toggleVoice('inputName','micName')">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-depart" onclick="departGoToArmband()">次へ → 腕章スキャン</button>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="goHome()">← 戻る</button>
+  </div>
+
+  <!-- ===== VIEW: DEPART - ARMBAND SCAN ===== -->
+  <div class="view" id="view-depart-armband">
+    <div class="step-indicator" id="stepBar-armband"></div>
+
+    <div class="card">
+      <div class="card-title">腕章のカメレオンコードをかざしてください</div>
+      <div class="scan-area" id="scanAreaArmband" onclick="scanArmband()">
+        <div class="scan-icon">📸</div>
+        <div class="scan-label">タップしてカメラ起動</div>
+      </div>
+    </div>
+
+    <button class="btn btn-outline btn-sm" onclick="departBackToName()">← 名前入力に戻る</button>
+  </div>
+
+  <!-- ===== VIEW: DEPART - VEHICLE SCAN ===== -->
+  <div class="view" id="view-depart-vehicle">
+    <div class="step-indicator" id="stepBar-vehicle"></div>
+
+    <div class="card">
+      <div class="card-title">車両プレートのカメレオンコードをかざしてください</div>
+      <div class="scan-area" id="scanAreaVehicle" onclick="scanVehicle()">
+        <div class="scan-icon">📸</div>
+        <div class="scan-label">タップしてカメラ起動</div>
+      </div>
+    </div>
+
+    <button class="btn btn-outline btn-sm" onclick="departBackToArmband()">← 腕章スキャンに戻る</button>
+  </div>
+
+  <!-- ===== VIEW: DEPART - CONFIRM ===== -->
+  <div class="view" id="view-depart-confirm">
+    <div class="step-indicator" id="stepBar-confirm"></div>
+
+    <div class="summary-card">
+      <div class="summary-header depart">出庫 — 登録内容の確認</div>
+      <div class="summary-body">
+        <div class="summary-row">
+          <div class="summary-label">会社名</div>
+          <div class="summary-value" id="cfmCompany"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">お名前</div>
+          <div class="summary-value" id="cfmName"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">腕章</div>
+          <div class="summary-value" id="cfmArmband"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">車両プレート</div>
+          <div class="summary-value" id="cfmVehicle"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-depart" onclick="registerDepart()" style="font-size:20px;padding:22px;">
+      ✓ 出庫登録する
+    </button>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="departBackToVehicle()">← 車両プレートスキャンに戻る</button>
+  </div>
+
+  <!-- ===== VIEW: RETURN - ARMBAND SCAN ===== -->
+  <div class="view" id="view-return-armband">
+    <div class="step-indicator" id="stepBarR-armband"></div>
+
+    <div class="card">
+      <div class="card-title">返却する腕章のカメレオンコードをかざしてください</div>
+      <div class="scan-area" id="scanAreaReturnArmband" onclick="scanReturnArmband()">
+        <div class="scan-icon">📸</div>
+        <div class="scan-label">タップしてカメラ起動</div>
+      </div>
+    </div>
+
+    <button class="btn btn-outline btn-sm" onclick="goHome()">← 戻る</button>
+  </div>
+
+  <!-- ===== VIEW: RETURN - VEHICLE SCAN ===== -->
+  <div class="view" id="view-return-vehicle">
+    <div class="step-indicator" id="stepBarR-vehicle"></div>
+
+    <div class="card">
+      <div class="card-title">返却する車両プレートのカメレオンコードをかざしてください</div>
+      <div class="scan-area" id="scanAreaReturnVehicle" onclick="scanReturnVehicle()">
+        <div class="scan-icon">📸</div>
+        <div class="scan-label">タップしてカメラ起動</div>
+      </div>
+    </div>
+
+    <button class="btn btn-outline btn-sm" onclick="returnBackToArmband()">← 腕章スキャンに戻る</button>
+  </div>
+
+  <!-- ===== VIEW: RETURN - CONFIRM ===== -->
+  <div class="view" id="view-return-confirm">
+    <div class="step-indicator" id="stepBarR-confirm"></div>
+
+    <div class="summary-card">
+      <div class="summary-header return">帰庫 — 返却内容の確認</div>
+      <div class="summary-body">
+        <div class="summary-row">
+          <div class="summary-label">会社名</div>
+          <div class="summary-value" id="rcfmCompany"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">お名前</div>
+          <div class="summary-value" id="rcfmName"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">腕章</div>
+          <div class="summary-value" id="rcfmArmband"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">車両プレート</div>
+          <div class="summary-value" id="rcfmVehicle"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">出庫日時</div>
+          <div class="summary-value" id="rcfmDepartTime"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-return" onclick="registerReturn()" style="font-size:20px;padding:22px;">
+      ✓ 帰庫登録する
+    </button>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="returnBackToVehicle()">← 車両プレートスキャンに戻る</button>
+  </div>
+
+  <!-- ===== VIEW: COMPLETION ===== -->
+  <div class="view" id="view-complete">
+    <div class="completion-view">
+      <div class="completion-icon" id="completeIcon"></div>
+      <div class="completion-title" id="completeTitle"></div>
+      <div class="completion-sub" id="completeSub"></div>
+      <button class="btn btn-primary" onclick="goHome()">ホームに戻る</button>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ======== ADMIN AUTH MODAL ======== -->
+<div class="modal-overlay" id="adminAuthModal">
+  <div class="modal-sheet" style="max-width:480px;margin:0 auto;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">管理者ログイン</div>
+    <div class="pw-wrap">
+      <input type="password" id="adminPwInput" placeholder="パスワードを入力"
+        onkeydown="if(event.key==='Enter')adminLogin()">
+      <button class="btn btn-primary" style="width:auto;padding:12px 20px;" onclick="adminLogin()">ログイン</button>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="closeAdminAuth()">キャンセル</button>
+  </div>
+</div>
+
+<!-- ======== ADMIN PANEL MODAL ======== -->
+<div class="modal-overlay" id="adminPanelModal">
+  <div class="modal-sheet" style="max-height:95vh;">
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div class="modal-title" style="margin-bottom:0;">管理者メニュー</div>
+      <button class="btn btn-outline btn-sm" style="width:auto;padding:8px 16px;" onclick="closeAdminPanel()">閉じる</button>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div style="display:flex;gap:4px;margin-bottom:16px;background:#f1f5f9;border-radius:var(--radius-xs);padding:4px;">
+      <button class="admin-tab active" id="tabData" onclick="switchAdminTab('data')"
+        style="flex:1;padding:10px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--text);">データ一覧</button>
+      <button class="admin-tab" id="tabMaster" onclick="switchAdminTab('master')"
+        style="flex:1;padding:10px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-secondary);">マスタ管理</button>
+      <button class="admin-tab" id="tabSettings" onclick="switchAdminTab('settings')"
+        style="flex:1;padding:10px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-secondary);">設定</button>
+    </div>
+
+    <!-- Tab: Data -->
+    <div id="panelData">
+      <div class="admin-section">
+        <div class="admin-section-title">出庫・帰庫データ</div>
+        <div class="date-filter">
+          <label>日付:</label>
+          <input type="date" id="filterDateFrom" onchange="renderAdminTable()">
+          <span style="color:var(--text-muted);">〜</span>
+          <input type="date" id="filterDateTo" onchange="renderAdminTable()">
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="adminTable">
+            <thead>
+              <tr>
+                <th>会社名</th><th>個人名</th><th>腕章コード</th><th>腕章名</th><th>車両プレート名</th><th>出庫日時</th><th>帰庫日時</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-primary btn-sm" onclick="downloadCSV()">📧 CSV をメール送信</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Master -->
+    <div id="panelMaster" style="display:none;">
+      <div class="admin-section">
+        <div class="admin-section-title">腕章マスタ</div>
+        <label class="file-upload-label">
+          📁 CSVファイルを選択
+          <input type="file" accept=".csv,text/csv" onchange="loadArmMaster(this)">
+        </label>
+        <div class="master-info">
+          <div class="master-dot" id="armMasterDot"></div>
+          <span id="armMasterText">未読込</span>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.6;">
+          CSV形式: 1行目ヘッダー、A列=カメレオンコード値、B列=腕章名称
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">車両プレートマスタ</div>
+        <label class="file-upload-label">
+          📁 CSVファイルを選択
+          <input type="file" accept=".csv,text/csv" onchange="loadVehicleMaster(this)">
+        </label>
+        <div class="master-info">
+          <div class="master-dot" id="vehMasterDot"></div>
+          <span id="vehMasterText">未読込</span>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.6;">
+          CSV形式: 1行目ヘッダー、A列=カメレオンコード値、B列=車両プレート名称
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Settings -->
+    <div id="panelSettings" style="display:none;">
+      <div class="admin-section">
+        <div class="admin-section-title">メール設定</div>
+        <div class="form-group">
+          <label class="form-label">送信先メールアドレス</label>
+          <input type="email" class="form-input" id="settingEmail" placeholder="example@company.co.jp"
+            onchange="saveSettings()">
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">自動メール送信</div>
+            <div class="settings-row-sub">毎日指定時刻にCSVをメール送信</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:50px;height:28px;">
+            <input type="checkbox" id="settingAutoSend" onchange="saveSettings()" style="opacity:0;width:0;height:0;">
+            <span style="position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:14px;transition:.3s;"
+              id="toggleAutoSend"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">管理者パスワード変更</div>
+        <div class="form-group">
+          <label class="form-label">新しいパスワード</label>
+          <input type="password" class="form-input" id="settingNewPw" placeholder="新しいパスワード">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="changePassword()">パスワードを変更</button>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">データ管理</div>
+        <button class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid #fca5a5;font-weight:600;"
+          onclick="clearAllData()">全データを削除（リセット）</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STORAGE KEYS
+// ============================================================
+const SK_RECORDS     = 'reception_records';
+const SK_ARM_MASTER  = 'reception_arm_master';
+const SK_VEH_MASTER  = 'reception_veh_master';
+const SK_SETTINGS    = 'reception_settings';
+const SK_PASSWORD    = 'reception_admin_pw';
+
+// ============================================================
+// DEFAULT SETTINGS
+// ============================================================
+function getSettings() {
+  try { return JSON.parse(localStorage.getItem(SK_SETTINGS) || '{}'); }
+  catch { return {}; }
+}
+function getPassword() {
+  return localStorage.getItem(SK_PASSWORD) || 'admin1234';
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  mode: null,           // 'depart' or 'return'
+  company: '',
+  personName: '',
+  armbandCode: null,
+  armbandName: null,
+  vehicleCode: null,
+  vehicleName: null,
+  matchedRecord: null,  // for return flow
+};
+
+let recognition = null;
+let currentMicTarget = null;
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  updateHomeStatus();
+  updateClock();
+  setInterval(updateClock, 1000);
+  checkMasterStatuses();
+  initToggle();
+});
+
+function updateClock() {
+  const now = new Date();
+  const d = now.getFullYear() + '/' + pad(now.getMonth()+1) + '/' + pad(now.getDate());
+  const t = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  document.getElementById('clockDisplay').textContent = d + ' ' + t;
+}
+
+function initToggle() {
+  const cb = document.getElementById('settingAutoSend');
+  const tg = document.getElementById('toggleAutoSend');
+  function update() {
+    if (cb.checked) {
+      tg.style.background = 'var(--accent)';
+      tg.innerHTML = '<span style="position:absolute;right:4px;top:4px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+    } else {
+      tg.style.background = '#cbd5e1';
+      tg.innerHTML = '<span style="position:absolute;left:4px;top:4px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+    }
+  }
+  cb.addEventListener('change', update);
+  update();
+}
+
+// ============================================================
+// VIEW MANAGEMENT
+// ============================================================
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goHome() {
+  resetState();
+  showView('view-home');
+  updateHomeStatus();
+  document.getElementById('btnAdminOpen').style.display = '';
+  document.getElementById('headerSub').textContent = '敷地内作業 入退場管理';
+}
+
+function resetState() {
+  state = { mode: null, company: '', personName: '', armbandCode: null, armbandName: null, vehicleCode: null, vehicleName: null, matchedRecord: null };
+}
+
+// ============================================================
+// HOME STATUS
+// ============================================================
+function updateHomeStatus() {
+  const records = loadRecords();
+  const today = formatDate(new Date());
+  const todayRecs = records.filter(r => r.departDate === today);
+  const departing = todayRecs.filter(r => !r.returnAt).length;
+  const returned = todayRecs.filter(r => r.returnAt).length;
+  document.getElementById('homeDepartCount').textContent = departing + ' 件';
+  document.getElementById('homeReturnCount').textContent = returned + ' 件';
+}
+
+// ============================================================
+// DEPART FLOW
+// ============================================================
+function startDepart() {
+  state.mode = 'depart';
+  document.getElementById('inputCompany').value = '';
+  document.getElementById('inputName').value = '';
+  document.getElementById('headerSub').textContent = '出庫手続き';
+  showView('view-depart-name');
+  updateDepartSteps(1);
+}
+
+function departGoToArmband() {
+  const company = document.getElementById('inputCompany').value.trim();
+  const name = document.getElementById('inputName').value.trim();
+  if (!company) { toast('会社名を入力してください', 'error'); return; }
+  if (!name) { toast('お名前を入力してください', 'error'); return; }
+  state.company = company;
+  state.personName = name;
+  resetScanArea('scanAreaArmband');
+  state.armbandCode = null; state.armbandName = null;
+  showView('view-depart-armband');
+  updateDepartSteps(2);
+  setTimeout(() => scanArmband(), 400);
+}
+
+function departBackToName() {
+  showView('view-depart-name');
+  updateDepartSteps(1);
+  document.getElementById('inputCompany').value = state.company;
+  document.getElementById('inputName').value = state.personName;
+}
+
+function departGoToVehicle() {
+  resetScanArea('scanAreaVehicle');
+  state.vehicleCode = null; state.vehicleName = null;
+  showView('view-depart-vehicle');
+  updateDepartSteps(3);
+  setTimeout(() => scanVehicle(), 400);
+}
+
+function departBackToArmband() {
+  resetScanArea('scanAreaArmband');
+  state.armbandCode = null; state.armbandName = null;
+  showView('view-depart-armband');
+  updateDepartSteps(2);
+}
+
+function departGoToConfirm() {
+  document.getElementById('cfmCompany').textContent = state.company;
+  document.getElementById('cfmName').textContent = state.personName;
+  document.getElementById('cfmArmband').innerHTML = esc(state.armbandCode) +
+    (state.armbandName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.armbandName) + '</span>' : '');
+  document.getElementById('cfmVehicle').innerHTML = esc(state.vehicleCode) +
+    (state.vehicleName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.vehicleName) + '</span>' : '');
+  showView('view-depart-confirm');
+  updateDepartSteps(4);
+}
+
+function departBackToVehicle() {
+  resetScanArea('scanAreaVehicle');
+  state.vehicleCode = null; state.vehicleName = null;
+  showView('view-depart-vehicle');
+  updateDepartSteps(3);
+}
+
+function updateDepartSteps(current) {
+  const steps = [
+    { id: 'ds', line: 'dl', labels: ['名前入力','腕章','車両','確認'] }
+  ];
+  for (let n = 1; n <= 4; n++) {
+    const el = document.getElementById('ds' + n);
+    if (!el) continue;
+    el.className = 'si-step' + (n < current ? ' done' : n === current ? ' active' : '');
+  }
+  for (let n = 1; n <= 3; n++) {
+    const line = document.getElementById('dl' + n);
+    if (line) line.className = 'si-line' + (n < current ? ' done' : '');
+  }
+  // Also update step bars in scan views
+  renderStepBar('stepBar-armband', ['名前入力','腕章','車両','確認'], current);
+  renderStepBar('stepBar-vehicle', ['名前入力','腕章','車両','確認'], current);
+  renderStepBar('stepBar-confirm', ['名前入力','腕章','車両','確認'], current);
+}
+
+function renderStepBar(containerId, labels, current) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  let html = '';
+  labels.forEach((label, i) => {
+    const n = i + 1;
+    const cls = n < current ? 'done' : n === current ? 'active' : '';
+    html += '<div class="si-step ' + cls + '"><div class="si-dot">' + (n < current ? '✓' : n) + '</div><div class="si-label">' + label + '</div></div>';
+    if (i < labels.length - 1) {
+      html += '<div class="si-line' + (n < current ? ' done' : '') + '"></div>';
+    }
+  });
+  el.innerHTML = html;
+}
+
+// ============================================================
+// RETURN FLOW
+// ============================================================
+function startReturn() {
+  state.mode = 'return';
+  state.armbandCode = null; state.armbandName = null;
+  state.vehicleCode = null; state.vehicleName = null;
+  state.matchedRecord = null;
+  document.getElementById('headerSub').textContent = '帰庫手続き';
+  resetScanArea('scanAreaReturnArmband');
+  showView('view-return-armband');
+  updateReturnSteps(1);
+  setTimeout(() => scanReturnArmband(), 400);
+}
+
+function returnGoToVehicle() {
+  resetScanArea('scanAreaReturnVehicle');
+  state.vehicleCode = null; state.vehicleName = null;
+  showView('view-return-vehicle');
+  updateReturnSteps(2);
+  setTimeout(() => scanReturnVehicle(), 400);
+}
+
+function returnBackToArmband() {
+  resetScanArea('scanAreaReturnArmband');
+  state.armbandCode = null; state.armbandName = null;
+  state.matchedRecord = null;
+  showView('view-return-armband');
+  updateReturnSteps(1);
+}
+
+function returnGoToConfirm() {
+  // Find the matching departure record
+  const rec = state.matchedRecord;
+  if (rec) {
+    document.getElementById('rcfmCompany').textContent = rec.company;
+    document.getElementById('rcfmName').textContent = rec.personName;
+    document.getElementById('rcfmDepartTime').textContent = rec.departAt;
+  } else {
+    document.getElementById('rcfmCompany').textContent = '—';
+    document.getElementById('rcfmName').textContent = '—';
+    document.getElementById('rcfmDepartTime').textContent = '—';
+  }
+  document.getElementById('rcfmArmband').innerHTML = esc(state.armbandCode) +
+    (state.armbandName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.armbandName) + '</span>' : '');
+  document.getElementById('rcfmVehicle').innerHTML = esc(state.vehicleCode) +
+    (state.vehicleName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.vehicleName) + '</span>' : '');
+  showView('view-return-confirm');
+  updateReturnSteps(3);
+}
+
+function returnBackToVehicle() {
+  resetScanArea('scanAreaReturnVehicle');
+  state.vehicleCode = null; state.vehicleName = null;
+  showView('view-return-vehicle');
+  updateReturnSteps(2);
+}
+
+function updateReturnSteps(current) {
+  renderStepBar('stepBarR-armband', ['腕章','車両','確認'], current);
+  renderStepBar('stepBarR-vehicle', ['腕章','車両','確認'], current);
+  renderStepBar('stepBarR-confirm', ['腕章','車両','確認'], current);
+}
+
+// ============================================================
+// SCANNING (IroatoReader CC)
+// ============================================================
+function scanArmband() {
+  scanCC('腕章のカメレオンコードをかざしてください', function(code) {
+    state.armbandCode = code;
+    state.armbandName = lookupArmName(code);
+    updateScanArea('scanAreaArmband', code, state.armbandName, '腕章');
+    setTimeout(() => departGoToVehicle(), 600);
+  });
+}
+
+function scanVehicle() {
+  scanCC('車両プレートのカメレオンコードをかざしてください', function(code) {
+    state.vehicleCode = code;
+    state.vehicleName = lookupVehName(code);
+    updateScanArea('scanAreaVehicle', code, state.vehicleName, '車両プレート');
+    setTimeout(() => departGoToConfirm(), 600);
+  });
+}
+
+function scanReturnArmband() {
+  scanCC('返却する腕章のカメレオンコードをかざしてください', function(code) {
+    state.armbandCode = code;
+    state.armbandName = lookupArmName(code);
+    // Find the active departure record with this armband
+    const records = loadRecords();
+    const match = records.find(r => r.armbandCode === code && !r.returnAt);
+    if (match) {
+      state.matchedRecord = match;
+      state.company = match.company;
+      state.personName = match.personName;
+    } else {
+      toast('この腕章コードに対応する出庫記録が見つかりません', 'warning');
+    }
+    updateScanArea('scanAreaReturnArmband', code, state.armbandName, '腕章');
+    setTimeout(() => returnGoToVehicle(), 600);
+  });
+}
+
+function scanReturnVehicle() {
+  scanCC('返却する車両プレートのカメレオンコードをかざしてください', function(code) {
+    state.vehicleCode = code;
+    state.vehicleName = lookupVehName(code);
+    updateScanArea('scanAreaReturnVehicle', code, state.vehicleName, '車両プレート');
+    setTimeout(() => returnGoToConfirm(), 600);
+  });
+}
+
+function scanCC(labelText, callback) {
+  try {
+    var reader = new IroatoReader('cc', {
+      mode:        IroatoReader.single,
+      resolution:  IroatoReader.r1280x720,
+      lineColor:   IroatoReader.green,
+      lineWidth:   10,
+      errLineColor: IroatoReader.red,
+      labelText:   labelText,
+    });
+    reader.read(function(res) {
+      if (res && res.data && res.data.codes && res.data.codes.length > 0) {
+        var code = res.data.codes[0].code;
+        if (code) {
+          callback(code.trim());
+          return;
+        }
+      }
+      toast('カメレオンコードを読み取れませんでした', 'error');
+    });
+  } catch (e) {
+    // IroatoReader not available (dev/test)
+    var testCode = prompt(labelText + '\n\n（テスト用）コード値を入力:');
+    if (testCode && testCode.trim()) {
+      callback(testCode.trim());
+    }
+  }
+}
+
+function updateScanArea(areaId, code, name, type) {
+  const area = document.getElementById(areaId);
+  area.className = 'scan-area scanned';
+  area.innerHTML =
+    '<div class="scan-icon">✅</div>' +
+    '<div class="scan-label">' + esc(type) + ' 読み取り完了</div>' +
+    '<div class="scan-value">' + esc(code) + '</div>' +
+    (name ? '<div class="scan-name">' + esc(name) + '</div>' : '');
+}
+
+function resetScanArea(areaId) {
+  const area = document.getElementById(areaId);
+  area.className = 'scan-area';
+  area.innerHTML =
+    '<div class="scan-icon">📸</div>' +
+    '<div class="scan-label">タップしてカメラ起動</div>';
+}
+
+// ============================================================
+// REGISTER
+// ============================================================
+function registerDepart() {
+  if (!state.company || !state.personName || !state.armbandCode || !state.vehicleCode) {
+    toast('入力が不足しています', 'error'); return;
+  }
+
+  const now = new Date();
+  const record = {
+    id:            genId(),
+    company:       state.company,
+    personName:    state.personName,
+    armbandCode:   state.armbandCode,
+    armbandName:   state.armbandName || '',
+    vehicleCode:   state.vehicleCode,
+    vehicleName:   state.vehicleName || '',
+    departAt:      formatDateTime(now),
+    departDate:    formatDate(now),
+    returnAt:      null,
+  };
+
+  const records = loadRecords();
+  records.push(record);
+  saveRecords(records);
+
+  document.getElementById('completeIcon').textContent = '🚗';
+  document.getElementById('completeTitle').textContent = '出庫登録完了';
+  document.getElementById('completeSub').textContent =
+    state.company + ' ' + state.personName + ' 様\n安全に作業をお願いいたします。';
+  document.getElementById('completeSub').style.whiteSpace = 'pre-line';
+  showView('view-complete');
+
+  toast('出庫登録が完了しました', 'success');
+
+  // Auto-return to home after 5 seconds
+  setTimeout(() => {
+    if (document.getElementById('view-complete').classList.contains('active')) {
+      goHome();
+    }
+  }, 5000);
+}
+
+function registerReturn() {
+  if (!state.armbandCode || !state.vehicleCode) {
+    toast('腕章と車両プレートの読み取りが必要です', 'error'); return;
+  }
+
+  const records = loadRecords();
+  const now = new Date();
+
+  // Find and update the matching record
+  let matched = false;
+  if (state.matchedRecord) {
+    const idx = records.findIndex(r => r.id === state.matchedRecord.id);
+    if (idx >= 0) {
+      records[idx].returnAt = formatDateTime(now);
+      matched = true;
+      state.company = records[idx].company;
+      state.personName = records[idx].personName;
+    }
+  }
+
+  if (!matched) {
+    // Try matching by armband code
+    const idx = records.findIndex(r => r.armbandCode === state.armbandCode && !r.returnAt);
+    if (idx >= 0) {
+      records[idx].returnAt = formatDateTime(now);
+      state.company = records[idx].company;
+      state.personName = records[idx].personName;
+      matched = true;
+    }
+  }
+
+  if (!matched) {
+    toast('対応する出庫記録が見つかりませんでした', 'error');
+    return;
+  }
+
+  saveRecords(records);
+
+  document.getElementById('completeIcon').textContent = '🏠';
+  document.getElementById('completeTitle').textContent = '帰庫登録完了';
+  document.getElementById('completeSub').textContent =
+    (state.company || '') + ' ' + (state.personName || '') + ' 様\nお疲れ様でした。';
+  document.getElementById('completeSub').style.whiteSpace = 'pre-line';
+  showView('view-complete');
+
+  toast('帰庫登録が完了しました', 'success');
+
+  setTimeout(() => {
+    if (document.getElementById('view-complete').classList.contains('active')) {
+      goHome();
+    }
+  }, 5000);
+}
+
+// ============================================================
+// VOICE INPUT (Web Speech API)
+// ============================================================
+function toggleVoice(inputId, micBtnId) {
+  const micBtn = document.getElementById(micBtnId);
+
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    toast('この端末では音声入力に対応していません', 'warning');
+    return;
+  }
+
+  if (recognition && currentMicTarget === inputId) {
+    recognition.stop();
+    recognition = null;
+    currentMicTarget = null;
+    micBtn.classList.remove('recording');
+    return;
+  }
+
+  // Stop any existing
+  if (recognition) {
+    recognition.stop();
+    if (currentMicTarget) {
+      document.getElementById(currentMicTarget.replace('input','mic')).classList.remove('recording');
+    }
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'ja-JP';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  currentMicTarget = inputId;
+  micBtn.classList.add('recording');
+
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    document.getElementById(inputId).value = transcript;
+    micBtn.classList.remove('recording');
+    recognition = null;
+    currentMicTarget = null;
+  };
+
+  recognition.onerror = function() {
+    micBtn.classList.remove('recording');
+    recognition = null;
+    currentMicTarget = null;
+    toast('音声を認識できませんでした', 'warning');
+  };
+
+  recognition.onend = function() {
+    micBtn.classList.remove('recording');
+    if (currentMicTarget === inputId) {
+      recognition = null;
+      currentMicTarget = null;
+    }
+  };
+
+  recognition.start();
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function openAdminAuth() {
+  document.getElementById('adminPwInput').value = '';
+  document.getElementById('adminAuthModal').classList.add('open');
+  setTimeout(() => document.getElementById('adminPwInput').focus(), 300);
+}
+function closeAdminAuth() {
+  document.getElementById('adminAuthModal').classList.remove('open');
+}
+
+function adminLogin() {
+  const pw = document.getElementById('adminPwInput').value;
+  if (pw === getPassword()) {
+    closeAdminAuth();
+    openAdminPanel();
+  } else {
+    toast('パスワードが正しくありません', 'error');
+  }
+}
+
+function openAdminPanel() {
+  loadSettings();
+  renderAdminTable();
+  checkMasterStatuses();
+  document.getElementById('adminPanelModal').classList.add('open');
+}
+function closeAdminPanel() {
+  document.getElementById('adminPanelModal').classList.remove('open');
+}
+
+function switchAdminTab(tab) {
+  ['data','master','settings'].forEach(t => {
+    document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    btn.style.background = t === tab ? '#fff' : 'transparent';
+    btn.style.color = t === tab ? 'var(--text)' : 'var(--text-secondary)';
+  });
+}
+
+// Admin Table
+function renderAdminTable() {
+  const records = loadRecords();
+  const fromEl = document.getElementById('filterDateFrom');
+  const toEl = document.getElementById('filterDateTo');
+
+  // Set default date filter to today
+  if (!fromEl.value) fromEl.value = toISODate(new Date());
+  if (!toEl.value) toEl.value = toISODate(new Date());
+
+  const from = fromEl.value;
+  const to = toEl.value;
+
+  const filtered = records.filter(r => {
+    const d = r.departDate.replace(/\//g, '-');
+    return d >= from && d <= to;
+  });
+
+  const tbody = document.getElementById('adminTableBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">データがありません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td>${esc(r.company)}</td>
+      <td>${esc(r.personName)}</td>
+      <td style="font-family:monospace;font-size:11px;">${esc(r.armbandCode)}</td>
+      <td>${esc(r.armbandName || '—')}</td>
+      <td>${esc(r.vehicleName || '—')}</td>
+      <td style="white-space:nowrap;">${esc(r.departAt)}</td>
+      <td style="white-space:nowrap;">${r.returnAt ? esc(r.returnAt) : '<span class="badge badge-blue">出庫中</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+// CSV Download via Mail
+function downloadCSV() {
+  const records = loadRecords();
+  const from = document.getElementById('filterDateFrom').value;
+  const to = document.getElementById('filterDateTo').value;
+
+  const filtered = records.filter(r => {
+    const d = r.departDate.replace(/\//g, '-');
+    return d >= from && d <= to;
+  });
+
+  // Build CSV
+  const BOM = '\uFEFF';
+  let csv = BOM + '会社名,個人名,腕章コード,腕章名,車両プレート名,出庫日時,帰庫日時\n';
+  filtered.forEach(r => {
+    csv += [
+      csvEsc(r.company),
+      csvEsc(r.personName),
+      csvEsc(r.armbandCode),
+      csvEsc(r.armbandName || ''),
+      csvEsc(r.vehicleName || ''),
+      csvEsc(r.departAt),
+      csvEsc(r.returnAt || ''),
+    ].join(',') + '\n';
+  });
+
+  const settings = getSettings();
+  const email = settings.email || '';
+  const subject = encodeURIComponent(from + '〜' + to + ' 出庫帰庫データ');
+
+  // For iPad: create blob and use mailto with attachment approach
+  // Since mailto can't attach files directly, we use a download + mail approach
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const filename = '出庫帰庫データ_' + from + '_' + to + '.csv';
+
+  // Try download first
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+
+  // Then open mail
+  setTimeout(() => {
+    const mailBody = encodeURIComponent(
+      from + '〜' + to + ' の出庫帰庫データをお送りします。\n\n' +
+      '件数: ' + filtered.length + '件\n' +
+      '※ CSVファイルはダウンロード済みです。メールに添付してください。'
+    );
+    window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + mailBody;
+    toast('CSVをダウンロードしました。メールに添付して送信してください。', 'success');
+  }, 500);
+
+  URL.revokeObjectURL(url);
+}
+
+function csvEsc(val) {
+  val = String(val || '');
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return '"' + val.replace(/"/g, '""') + '"';
+  }
+  return val;
+}
+
+// ============================================================
+// MASTER DATA
+// ============================================================
+function loadArmMaster(input) {
+  loadMasterCSV(input, SK_ARM_MASTER, '腕章マスタ', function() { checkMasterStatuses(); });
+}
+function loadVehicleMaster(input) {
+  loadMasterCSV(input, SK_VEH_MASTER, '車両プレートマスタ', function() { checkMasterStatuses(); });
+}
+
+function loadMasterCSV(input, storageKey, label, callback) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    const master = {};
+    let count = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      if (cols.length >= 2 && cols[0].trim()) {
+        master[cols[0].trim()] = cols[1].trim();
+        count++;
+      }
+    }
+    localStorage.setItem(storageKey, JSON.stringify(master));
+    toast(label + 'を読込みました（' + count + '件）', 'success');
+    input.value = '';
+    if (callback) callback();
+  };
+  reader.readAsText(file, 'Shift_JIS');
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQuotes = !inQuotes; }
+    else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+    else { current += line[i]; }
+  }
+  result.push(current);
+  return result;
+}
+
+function lookupArmName(code) {
+  try {
+    const master = JSON.parse(localStorage.getItem(SK_ARM_MASTER) || '{}');
+    return master[code] || null;
+  } catch { return null; }
+}
+
+function lookupVehName(code) {
+  try {
+    const master = JSON.parse(localStorage.getItem(SK_VEH_MASTER) || '{}');
+    return master[code] || null;
+  } catch { return null; }
+}
+
+function checkMasterStatuses() {
+  try {
+    const arm = JSON.parse(localStorage.getItem(SK_ARM_MASTER) || '{}');
+    const armCount = Object.keys(arm).length;
+    const armDot = document.getElementById('armMasterDot');
+    const armText = document.getElementById('armMasterText');
+    if (armCount > 0) {
+      armDot.classList.add('loaded');
+      armText.textContent = '読込済み（' + armCount + '件）';
+    } else {
+      armDot.classList.remove('loaded');
+      armText.textContent = '未読込';
+    }
+  } catch {}
+  try {
+    const veh = JSON.parse(localStorage.getItem(SK_VEH_MASTER) || '{}');
+    const vehCount = Object.keys(veh).length;
+    const vehDot = document.getElementById('vehMasterDot');
+    const vehText = document.getElementById('vehMasterText');
+    if (vehCount > 0) {
+      vehDot.classList.add('loaded');
+      vehText.textContent = '読込済み（' + vehCount + '件）';
+    } else {
+      vehDot.classList.remove('loaded');
+      vehText.textContent = '未読込';
+    }
+  } catch {}
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('settingEmail').value = s.email || '';
+  document.getElementById('settingAutoSend').checked = !!s.autoSend;
+  // Trigger toggle update
+  document.getElementById('settingAutoSend').dispatchEvent(new Event('change'));
+}
+
+function saveSettings() {
+  const s = {
+    email: document.getElementById('settingEmail').value.trim(),
+    autoSend: document.getElementById('settingAutoSend').checked,
+  };
+  localStorage.setItem(SK_SETTINGS, JSON.stringify(s));
+}
+
+function changePassword() {
+  const newPw = document.getElementById('settingNewPw').value.trim();
+  if (!newPw || newPw.length < 4) {
+    toast('パスワードは4文字以上で設定してください', 'error'); return;
+  }
+  localStorage.setItem(SK_PASSWORD, newPw);
+  document.getElementById('settingNewPw').value = '';
+  toast('パスワードを変更しました', 'success');
+}
+
+function clearAllData() {
+  if (!confirm('全データを削除します。よろしいですか？')) return;
+  localStorage.removeItem(SK_RECORDS);
+  renderAdminTable();
+  updateHomeStatus();
+  toast('全データを削除しました', 'warning');
+}
+
+// ============================================================
+// DATA ACCESS
+// ============================================================
+function loadRecords() {
+  try { return JSON.parse(localStorage.getItem(SK_RECORDS) || '[]'); }
+  catch { return []; }
+}
+function saveRecords(records) {
+  localStorage.setItem(SK_RECORDS, JSON.stringify(records));
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type) {
+  type = type || 'success';
+  const icons = { success: '✓', error: '✕', warning: '⚠' };
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span>' + (icons[type]||'i') + '</span> ' + esc(msg);
+  const wrap = document.getElementById('toastWrap');
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2700);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+}
+function formatDate(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate());
+}
+function formatDateTime(d) {
+  return formatDate(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function toISODate(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Close modals on overlay click
+document.getElementById('adminAuthModal').addEventListener('click', function(e) { if (e.target === this) closeAdminAuth(); });
+document.getElementById('adminPanelModal').addEventListener('click', function(e) { if (e.target === this) closeAdminPanel(); });
+</script>
+</body>
+</html>

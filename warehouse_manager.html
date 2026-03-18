@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>倉庫管理システム - IroatoReader</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --primary: #1e40af;
+    --primary-light: #3b82f6;
+    --primary-dark: #1e3a8a;
+    --secondary: #0f172a;
+    --accent: #06b6d4;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --sidebar-w: 240px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--secondary);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    transition: transform 0.3s;
+  }
+
+  .sidebar-logo {
+    padding: 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .sidebar-logo h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+  .sidebar-logo p {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+  }
+
+  .nav-section {
+    padding: 12px 8px 4px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin: 2px 8px;
+    transition: background 0.2s;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .nav-item.active { background: var(--primary); color: #fff; }
+  .nav-item i { width: 18px; text-align: center; font-size: 14px; }
+
+  /* ===== MAIN ===== */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topbar-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+  .content { padding: 24px; flex: 1; }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ===== STATS ===== */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .stat-card .icon {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: var(--text); }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: none; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #059669; }
+  .btn-warning { background: var(--warning); color: #fff; }
+  .btn-warning:hover { background: #d97706; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-icon { padding: 6px 8px; }
+
+  /* ===== FORMS ===== */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+    transition: border 0.2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+  }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+  .form-full { grid-column: 1 / -1; }
+
+  /* ===== TABLE ===== */
+  .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--bg);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  /* ===== BADGES ===== */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+
+  /* ===== SEARCH ===== */
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    min-width: 240px;
+  }
+  .search-box input {
+    border: none; background: transparent;
+    font-size: 13px; outline: none; flex: 1;
+    color: var(--text);
+  }
+  .search-box i { color: var(--text-muted); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 90%; max-width: 580px;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: translateY(-20px);
+    transition: transform 0.3s;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h3 { font-size: 15px; font-weight: 600; }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+
+  /* ===== VIEWS ===== */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed; bottom: 20px; right: 20px;
+    z-index: 300; display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    background: var(--secondary);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    min-width: 240px;
+  }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.error { border-left: 4px solid var(--danger); }
+  .toast.warning { border-left: 4px solid var(--warning); }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ===== EMPTY STATE ===== */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+  }
+  .empty i { font-size: 48px; margin-bottom: 12px; opacity: 0.3; }
+  .empty p { font-size: 14px; }
+
+  /* ===== LOCATION GRID ===== */
+  .location-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .location-cell {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    position: relative;
+  }
+  .location-cell:hover { border-color: var(--primary-light); background: #eff6ff; }
+  .location-cell.occupied { border-color: var(--success); background: #ecfdf5; }
+  .location-cell.full { border-color: var(--danger); background: #fef2f2; }
+  .location-cell .loc-name { font-weight: 600; font-size: 13px; }
+  .location-cell .loc-count { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .location-cell .loc-type { font-size: 10px; margin-top: 6px; }
+
+  /* ===== HISTORY ===== */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .history-icon.in { background: #d1fae5; color: #065f46; }
+  .history-icon.out { background: #fee2e2; color: #991b1b; }
+  .history-info { flex: 1; }
+  .history-info .h-product { font-weight: 500; font-size: 13px; }
+  .history-info .h-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .history-qty { font-weight: 700; font-size: 15px; }
+  .history-qty.in { color: var(--success); }
+  .history-qty.out { color: var(--danger); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .flex { display: flex; }
+  .gap-2 { gap: 8px; }
+  .items-center { align-items: center; }
+  .ml-auto { margin-left: auto; }
+  .mt-2 { margin-top: 8px; }
+  .mt-4 { margin-top: 16px; }
+
+  .text-muted { color: var(--text-muted); font-size: 12px; }
+  .font-bold { font-weight: 700; }
+  .text-right { text-align: right; }
+
+  .w-full { width: 100%; }
+
+  .confirm-danger {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 14px;
+    color: #991b1b;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>📦 WMS</h1>
+    <p>倉庫管理システム</p>
+  </div>
+
+  <div class="nav-section">メイン</div>
+  <div class="nav-item active" onclick="showView('dashboard')">
+    <i class="fas fa-chart-line"></i> ダッシュボード
+  </div>
+
+  <div class="nav-section">管理</div>
+  <div class="nav-item" onclick="showView('products')">
+    <i class="fas fa-boxes"></i> 製品マスタ
+  </div>
+  <div class="nav-item" onclick="showView('locations')">
+    <i class="fas fa-map-marked-alt"></i> ロケーション
+  </div>
+
+  <div class="nav-section">トランザクション</div>
+  <div class="nav-item" onclick="showView('receiving')">
+    <i class="fas fa-truck-loading"></i> 入庫処理
+  </div>
+  <div class="nav-item" onclick="showView('shipping')">
+    <i class="fas fa-shipping-fast"></i> 出荷処理
+  </div>
+  <div class="nav-item" onclick="showView('inventory')">
+    <i class="fas fa-search"></i> 在庫照会
+  </div>
+  <div class="nav-item" onclick="showView('history')">
+    <i class="fas fa-history"></i> 入出庫履歴
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">ダッシュボード</div>
+    <div class="topbar-actions">
+      <span class="text-muted" id="lastUpdate"></span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">最近の入出庫履歴</div>
+            <button class="btn btn-outline btn-sm" onclick="showView('history')">すべて見る</button>
+          </div>
+          <div id="dashHistory"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">在庫アラート</div>
+          </div>
+          <div id="dashAlerts"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PRODUCTS ===== -->
+    <div class="view" id="view-products">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">製品マスタ</div>
+          <div class="flex gap-2 items-center">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="productSearch" placeholder="製品名・SKU検索..." oninput="renderProducts()">
+            </div>
+            <button class="btn btn-primary" onclick="openProductModal()">
+              <i class="fas fa-plus"></i> 製品追加
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>製品名</th>
+                <th>カテゴリ</th>
+                <th>単位</th>
+                <th>安全在庫</th>
+                <th>現在庫</th>
+                <th>ステータス</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="productTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOCATIONS ===== -->
+    <div class="view" id="view-locations">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">ロケーション管理</div>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-primary" onclick="openLocationModal()">
+              <i class="fas fa-plus"></i> ロケーション追加
+            </button>
+          </div>
+        </div>
+        <div class="location-grid" id="locationGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">ロケーション一覧</div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ロケーションID</th>
+                <th>名称</th>
+                <th>タイプ</th>
+                <th>最大容量</th>
+                <th>在庫数</th>
+                <th>使用率</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="locationTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RECEIVING ===== -->
+    <div class="view" id="view-receiving">
+      <div style="display:grid;grid-template-columns:360px 1fr;gap:16px;">
+        <div class="card" style="height:fit-content;">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-truck-loading" style="color:var(--success)"></i> 入庫登録</div>
+          </div>
+          <div class="form-grid" style="grid-template-columns:1fr;">
+            <div class="form-group">
+              <label>製品 <span style="color:red">*</span></label>
+              <select id="rcvProduct">
+                <option value="">— 製品を選択 —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>入庫数量 <span style="color:red">*</span></label>
+              <input type="number" id="rcvQty" min="1" placeholder="0" value="1">
+            </div>
+            <div class="form-group">
+              <label>ロケーション <span style="color:red">*</span></label>
+              <select id="rcvLocation">
+                <option value="">— ロケーションを選択 —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>入庫日 <span style="color:red">*</span></label>
+              <input type="date" id="rcvDate">
+            </div>
+            <div class="form-group">
+              <label>ロット番号</label>
+              <input type="text" id="rcvLot" placeholder="LOT-XXXXXX">
+            </div>
+            <div class="form-group">
+              <label>備考</label>
+              <textarea id="rcvNote" placeholder="メモ..."></textarea>
+            </div>
+            <button class="btn btn-success w-full" onclick="submitReceiving()">
+              <i class="fas fa-check"></i> 入庫登録
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">入庫履歴（直近20件）</div>
+          </div>
+          <div id="receivingHistory"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SHIPPING ===== -->
+    <div class="view" id="view-shipping">
+      <div style="display:grid;grid-template-columns:360px 1fr;gap:16px;">
+        <div class="card" style="height:fit-content;">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-shipping-fast" style="color:var(--danger)"></i> 出荷登録</div>
+          </div>
+          <div class="form-grid" style="grid-template-columns:1fr;">
+            <div class="form-group">
+              <label>製品 <span style="color:red">*</span></label>
+              <select id="shipProduct" onchange="updateShipLocation()">
+                <option value="">— 製品を選択 —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ロケーション <span style="color:red">*</span></label>
+              <select id="shipLocation">
+                <option value="">— ロケーションを選択 —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>出荷数量 <span style="color:red">*</span></label>
+              <input type="number" id="shipQty" min="1" placeholder="0" value="1">
+            </div>
+            <div class="form-group">
+              <label>出荷日 <span style="color:red">*</span></label>
+              <input type="date" id="shipDate">
+            </div>
+            <div class="form-group">
+              <label>出荷先</label>
+              <input type="text" id="shipDest" placeholder="出荷先名">
+            </div>
+            <div class="form-group">
+              <label>備考</label>
+              <textarea id="shipNote" placeholder="メモ..."></textarea>
+            </div>
+            <div id="shipStockInfo" style="background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:12px;color:var(--text-muted);display:none;"></div>
+            <button class="btn btn-danger w-full" onclick="submitShipping()">
+              <i class="fas fa-paper-plane"></i> 出荷登録
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">出荷履歴（直近20件）</div>
+          </div>
+          <div id="shippingHistory"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INVENTORY ===== -->
+    <div class="view" id="view-inventory">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">在庫照会</div>
+          <div class="flex gap-2 items-center">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="invSearch" placeholder="製品名・SKU・ロケーション検索..." oninput="renderInventory()">
+            </div>
+            <select id="invLocation" onchange="renderInventory()" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+              <option value="">全ロケーション</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>製品</th>
+                <th>SKU</th>
+                <th>ロケーション</th>
+                <th>在庫数</th>
+                <th>単位</th>
+                <th>安全在庫</th>
+                <th>ステータス</th>
+                <th>最終更新</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== HISTORY ===== -->
+    <div class="view" id="view-history">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">入出庫履歴</div>
+          <div class="flex gap-2 items-center">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="histSearch" placeholder="製品・ロケーション検索..." oninput="renderHistory()">
+            </div>
+            <select id="histType" onchange="renderHistory()" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+              <option value="">全種別</option>
+              <option value="in">入庫</option>
+              <option value="out">出荷</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>種別</th>
+                <th>製品</th>
+                <th>数量</th>
+                <th>ロケーション</th>
+                <th>ロット/出荷先</th>
+                <th>備考</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===== MODAL: Product ===== -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="productModalTitle">製品追加</h3>
+      <button class="btn btn-outline btn-icon" onclick="closeModal('productModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <input type="hidden" id="editProductId">
+        <div class="form-group">
+          <label>SKU <span style="color:red">*</span></label>
+          <input type="text" id="pSku" placeholder="SKU-001">
+        </div>
+        <div class="form-group">
+          <label>製品名 <span style="color:red">*</span></label>
+          <input type="text" id="pName" placeholder="製品名">
+        </div>
+        <div class="form-group">
+          <label>カテゴリ</label>
+          <input type="text" id="pCategory" placeholder="カテゴリ">
+        </div>
+        <div class="form-group">
+          <label>単位</label>
+          <select id="pUnit">
+            <option value="個">個</option>
+            <option value="本">本</option>
+            <option value="枚">枚</option>
+            <option value="箱">箱</option>
+            <option value="kg">kg</option>
+            <option value="L">L</option>
+            <option value="m">m</option>
+            <option value="式">式</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>安全在庫数</label>
+          <input type="number" id="pSafetyStock" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>バーコード</label>
+          <input type="text" id="pBarcode" placeholder="JAN/EAN/UPC">
+        </div>
+        <div class="form-group form-full">
+          <label>説明</label>
+          <textarea id="pDesc" placeholder="製品の説明..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('productModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveProduct()"><i class="fas fa-save"></i> 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Location ===== -->
+<div class="modal-overlay" id="locationModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="locationModalTitle">ロケーション追加</h3>
+      <button class="btn btn-outline btn-icon" onclick="closeModal('locationModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <input type="hidden" id="editLocationId">
+        <div class="form-group">
+          <label>ロケーションID <span style="color:red">*</span></label>
+          <input type="text" id="lId" placeholder="A-01-01">
+        </div>
+        <div class="form-group">
+          <label>名称 <span style="color:red">*</span></label>
+          <input type="text" id="lName" placeholder="A棚 1段 1列">
+        </div>
+        <div class="form-group">
+          <label>エリア</label>
+          <input type="text" id="lArea" placeholder="A棚">
+        </div>
+        <div class="form-group">
+          <label>タイプ</label>
+          <select id="lType">
+            <option value="shelf">棚</option>
+            <option value="floor">フロア</option>
+            <option value="rack">ラック</option>
+            <option value="cold">冷蔵</option>
+            <option value="freezer">冷凍</option>
+            <option value="hazmat">危険物</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>最大容量</label>
+          <input type="number" id="lCapacity" min="1" value="100" placeholder="100">
+        </div>
+        <div class="form-group form-full">
+          <label>備考</label>
+          <textarea id="lNote" placeholder="ロケーションのメモ..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('locationModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveLocation()"><i class="fas fa-save"></i> 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Delete Confirm ===== -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3>削除確認</h3>
+      <button class="btn btn-outline btn-icon" onclick="closeModal('deleteModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-danger">
+        <i class="fas fa-exclamation-triangle"></i> <span id="deleteMessage"></span>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);">この操作は取り消せません。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('deleteModal')">キャンセル</button>
+      <button class="btn btn-danger" id="deleteConfirmBtn"><i class="fas fa-trash"></i> 削除する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+// DATA STORE (LocalStorage)
+// =============================================
+
+const KEYS = {
+  products: 'wms_products',
+  locations: 'wms_locations',
+  inventory: 'wms_inventory',
+  transactions: 'wms_transactions',
+};
+
+function load(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch { return []; }
+}
+
+function save(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function nowStr() {
+  const d = new Date();
+  return d.toLocaleString('ja-JP');
+}
+
+// =============================================
+// INIT SAMPLE DATA
+// =============================================
+
+function initSampleData() {
+  if (load(KEYS.products).length === 0) {
+    const products = [
+      { id: genId(), sku: 'SKU-001', name: 'カメレオンカメラ A型', category: '光学機器', unit: '個', safetyStock: 10, barcode: '4901234567890', desc: 'カメレオンコード対応カメラ', createdAt: nowStr() },
+      { id: genId(), sku: 'SKU-002', name: 'レンズユニット L50', category: '光学部品', unit: '個', safetyStock: 20, barcode: '4901234567891', desc: '50mm標準レンズユニット', createdAt: nowStr() },
+      { id: genId(), sku: 'SKU-003', name: '解析ボード Rev.3', category: '電子部品', unit: '枚', safetyStock: 5, barcode: '4901234567892', desc: '画像解析処理ボード', createdAt: nowStr() },
+      { id: genId(), sku: 'SKU-004', name: 'ハーネスケーブル 1m', category: 'ケーブル', unit: '本', safetyStock: 30, barcode: '4901234567893', desc: '接続用ハーネス', createdAt: nowStr() },
+    ];
+    save(KEYS.products, products);
+
+    const locations = [
+      { id: genId(), locId: 'A-01', name: 'A棚 1段', area: 'A棚', type: 'shelf', capacity: 50, note: '軽量品専用', createdAt: nowStr() },
+      { id: genId(), locId: 'A-02', name: 'A棚 2段', area: 'A棚', type: 'shelf', capacity: 50, note: '', createdAt: nowStr() },
+      { id: genId(), locId: 'B-01', name: 'B棚 1段', area: 'B棚', type: 'rack', capacity: 100, note: '重量品可', createdAt: nowStr() },
+      { id: genId(), locId: 'B-02', name: 'B棚 2段', area: 'B棚', type: 'rack', capacity: 100, note: '', createdAt: nowStr() },
+      { id: genId(), locId: 'C-01', name: '冷蔵庫 1', area: 'C棟', type: 'cold', capacity: 30, note: '要温度管理', createdAt: nowStr() },
+      { id: genId(), locId: 'D-FLOOR', name: 'Dフロア', area: 'D棟', type: 'floor', capacity: 500, note: '大型品', createdAt: nowStr() },
+    ];
+    save(KEYS.locations, locations);
+
+    // inventory
+    const ps = load(KEYS.products);
+    const ls = load(KEYS.locations);
+    const inventory = [
+      { id: genId(), productId: ps[0].id, locationId: ls[0].id, qty: 25, updatedAt: nowStr() },
+      { id: genId(), productId: ps[1].id, locationId: ls[1].id, qty: 8, updatedAt: nowStr() },
+      { id: genId(), productId: ps[2].id, locationId: ls[2].id, qty: 3, updatedAt: nowStr() },
+      { id: genId(), productId: ps[3].id, locationId: ls[3].id, qty: 42, updatedAt: nowStr() },
+    ];
+    save(KEYS.inventory, inventory);
+
+    // transactions
+    const transactions = [
+      { id: genId(), type: 'in', productId: ps[0].id, locationId: ls[0].id, qty: 30, date: todayStr(), lot: 'LOT-240101', note: '初回入荷', dest: '', createdAt: nowStr() },
+      { id: genId(), type: 'out', productId: ps[0].id, locationId: ls[0].id, qty: 5, date: todayStr(), lot: '', note: '', dest: '東京支店', createdAt: nowStr() },
+      { id: genId(), type: 'in', productId: ps[1].id, locationId: ls[1].id, qty: 8, date: todayStr(), lot: 'LOT-240201', note: '', dest: '', createdAt: nowStr() },
+      { id: genId(), type: 'in', productId: ps[3].id, locationId: ls[3].id, qty: 50, date: todayStr(), lot: '', note: '定期入荷', dest: '', createdAt: nowStr() },
+      { id: genId(), type: 'out', productId: ps[3].id, locationId: ls[3].id, qty: 8, date: todayStr(), lot: '', note: '', dest: '大阪支社', createdAt: nowStr() },
+    ];
+    save(KEYS.transactions, transactions);
+  }
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+
+const viewTitles = {
+  dashboard: 'ダッシュボード',
+  products: '製品マスタ',
+  locations: 'ロケーション管理',
+  receiving: '入庫処理',
+  shipping: '出荷処理',
+  inventory: '在庫照会',
+  history: '入出庫履歴',
+};
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${name}'`)) {
+      n.classList.add('active');
+    }
+  });
+  document.getElementById('topbarTitle').textContent = viewTitles[name] || name;
+
+  // render view
+  const renders = {
+    dashboard: renderDashboard,
+    products: renderProducts,
+    locations: renderLocations,
+    receiving: renderReceiving,
+    shipping: renderShipping,
+    inventory: renderInventory,
+    history: renderHistory,
+  };
+  if (renders[name]) renders[name]();
+}
+
+// =============================================
+// HELPERS
+// =============================================
+
+function getProduct(id) {
+  return load(KEYS.products).find(p => p.id === id);
+}
+
+function getLocation(id) {
+  return load(KEYS.locations).find(l => l.id === id);
+}
+
+function getStockForProduct(productId) {
+  return load(KEYS.inventory)
+    .filter(i => i.productId === productId)
+    .reduce((sum, i) => sum + (i.qty || 0), 0);
+}
+
+function getStockByProductAndLocation(productId, locationId) {
+  const inv = load(KEYS.inventory).find(i => i.productId === productId && i.locationId === locationId);
+  return inv ? inv.qty : 0;
+}
+
+function getLocationStock(locationId) {
+  return load(KEYS.inventory)
+    .filter(i => i.locationId === locationId)
+    .reduce((sum, i) => sum + (i.qty || 0), 0);
+}
+
+function locTypeLabel(t) {
+  const m = { shelf:'棚', floor:'フロア', rack:'ラック', cold:'冷蔵', freezer:'冷凍', hazmat:'危険物' };
+  return m[t] || t;
+}
+
+function locTypeBadge(t) {
+  const m = {
+    shelf: 'badge-blue',
+    floor: 'badge-gray',
+    rack: 'badge-purple',
+    cold: 'badge-green',
+    freezer: 'badge-blue',
+    hazmat: 'badge-red',
+  };
+  return m[t] || 'badge-gray';
+}
+
+// =============================================
+// DASHBOARD
+// =============================================
+
+function renderDashboard() {
+  const products = load(KEYS.products);
+  const locations = load(KEYS.locations);
+  const inventory = load(KEYS.inventory);
+  const transactions = load(KEYS.transactions);
+
+  const totalProducts = products.length;
+  const totalLocations = locations.length;
+  const totalStock = inventory.reduce((s, i) => s + i.qty, 0);
+  const todayTx = transactions.filter(t => t.date === todayStr()).length;
+
+  const stats = [
+    { icon: 'fas fa-boxes', color: '#dbeafe', iconColor: '#1d4ed8', label: '製品種類', value: totalProducts },
+    { icon: 'fas fa-map-marked-alt', color: '#f3e8ff', iconColor: '#7c3aed', label: 'ロケーション数', value: totalLocations },
+    { icon: 'fas fa-layer-group', color: '#d1fae5', iconColor: '#059669', label: '総在庫数', value: totalStock.toLocaleString() },
+    { icon: 'fas fa-exchange-alt', color: '#fef3c7', iconColor: '#d97706', label: '本日の入出庫', value: todayTx },
+  ];
+
+  document.getElementById('statsGrid').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="icon" style="background:${s.color};color:${s.iconColor}"><i class="${s.icon}"></i></div>
+      <div class="value">${s.value}</div>
+      <div class="label">${s.label}</div>
+    </div>
+  `).join('');
+
+  // recent history
+  const recent = [...transactions].reverse().slice(0, 8);
+  if (recent.length === 0) {
+    document.getElementById('dashHistory').innerHTML = '<div class="empty"><i class="fas fa-history"></i><p>履歴なし</p></div>';
+  } else {
+    document.getElementById('dashHistory').innerHTML = recent.map(t => {
+      const p = getProduct(t.productId);
+      const l = getLocation(t.locationId);
+      const isIn = t.type === 'in';
+      return `
+        <div class="history-item">
+          <div class="history-icon ${isIn ? 'in' : 'out'}">
+            <i class="fas fa-${isIn ? 'arrow-down' : 'arrow-up'}"></i>
+          </div>
+          <div class="history-info">
+            <div class="h-product">${p ? p.name : '不明'}</div>
+            <div class="h-detail">${l ? l.name : '—'} · ${t.date}</div>
+          </div>
+          <div class="history-qty ${isIn ? 'in' : 'out'}">${isIn ? '+' : '-'}${t.qty}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // alerts
+  const alerts = products.map(p => {
+    const stock = getStockForProduct(p.id);
+    return { p, stock };
+  }).filter(({ p, stock }) => stock <= p.safetyStock);
+
+  if (alerts.length === 0) {
+    document.getElementById('dashAlerts').innerHTML = `
+      <div class="empty">
+        <i class="fas fa-check-circle" style="color:var(--success);opacity:1;"></i>
+        <p style="color:var(--success);">在庫アラートなし</p>
+      </div>`;
+  } else {
+    document.getElementById('dashAlerts').innerHTML = alerts.map(({ p, stock }) => `
+      <div class="history-item">
+        <div class="history-icon" style="background:#fee2e2;color:#991b1b">
+          <i class="fas fa-exclamation"></i>
+        </div>
+        <div class="history-info">
+          <div class="h-product">${p.name}</div>
+          <div class="h-detail">在庫: ${stock} / 安全在庫: ${p.safetyStock}</div>
+        </div>
+        <span class="badge badge-red">${stock === 0 ? '欠品' : '不足'}</span>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('lastUpdate').textContent = '最終更新: ' + nowStr();
+}
+
+// =============================================
+// PRODUCTS
+// =============================================
+
+function renderProducts() {
+  const q = (document.getElementById('productSearch')?.value || '').toLowerCase();
+  const products = load(KEYS.products).filter(p =>
+    !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q)
+  );
+
+  const tbody = document.getElementById('productTable');
+  if (products.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><i class="fas fa-box-open"></i><p>${q ? '検索結果なし' : '製品が登録されていません'}</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const stock = getStockForProduct(p.id);
+    const status = stock === 0 ? ['badge-red', '欠品'] : stock <= p.safetyStock ? ['badge-yellow', '要補充'] : ['badge-green', '正常'];
+    return `
+      <tr>
+        <td><span class="badge badge-gray">${p.sku}</span></td>
+        <td><strong>${p.name}</strong></td>
+        <td>${p.category || '—'}</td>
+        <td>${p.unit}</td>
+        <td>${p.safetyStock}</td>
+        <td><strong>${stock}</strong></td>
+        <td><span class="badge ${status[0]}">${status[1]}</span></td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm btn-icon" onclick="openProductModal('${p.id}')" title="編集"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('product','${p.id}','${p.name.replace(/'/g,"&#39;")}')" title="削除"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openProductModal(id = null) {
+  document.getElementById('productModalTitle').textContent = id ? '製品編集' : '製品追加';
+  document.getElementById('editProductId').value = id || '';
+
+  if (id) {
+    const p = getProduct(id);
+    if (!p) return;
+    document.getElementById('pSku').value = p.sku;
+    document.getElementById('pName').value = p.name;
+    document.getElementById('pCategory').value = p.category || '';
+    document.getElementById('pUnit').value = p.unit;
+    document.getElementById('pSafetyStock').value = p.safetyStock;
+    document.getElementById('pBarcode').value = p.barcode || '';
+    document.getElementById('pDesc').value = p.desc || '';
+  } else {
+    ['pSku','pName','pCategory','pBarcode','pDesc'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('pUnit').value = '個';
+    document.getElementById('pSafetyStock').value = '0';
+  }
+  openModal('productModal');
+}
+
+function saveProduct() {
+  const id = document.getElementById('editProductId').value;
+  const sku = document.getElementById('pSku').value.trim();
+  const name = document.getElementById('pName').value.trim();
+
+  if (!sku || !name) { toast('SKUと製品名は必須です', 'error'); return; }
+
+  const products = load(KEYS.products);
+
+  // check duplicate SKU
+  const dup = products.find(p => p.sku === sku && p.id !== id);
+  if (dup) { toast('このSKUはすでに存在します', 'error'); return; }
+
+  const data = {
+    sku, name,
+    category: document.getElementById('pCategory').value.trim(),
+    unit: document.getElementById('pUnit').value,
+    safetyStock: parseInt(document.getElementById('pSafetyStock').value) || 0,
+    barcode: document.getElementById('pBarcode').value.trim(),
+    desc: document.getElementById('pDesc').value.trim(),
+  };
+
+  if (id) {
+    const idx = products.findIndex(p => p.id === id);
+    if (idx >= 0) products[idx] = { ...products[idx], ...data };
+    toast('製品を更新しました', 'success');
+  } else {
+    products.push({ id: genId(), ...data, createdAt: nowStr() });
+    toast('製品を追加しました', 'success');
+  }
+
+  save(KEYS.products, products);
+  closeModal('productModal');
+  renderProducts();
+}
+
+// =============================================
+// LOCATIONS
+// =============================================
+
+function renderLocations() {
+  const locations = load(KEYS.locations);
+
+  // grid view
+  document.getElementById('locationGrid').innerHTML = locations.map(l => {
+    const stock = getLocationStock(l.id);
+    const pct = l.capacity > 0 ? (stock / l.capacity) * 100 : 0;
+    const cls = pct === 0 ? '' : pct >= 90 ? 'full' : 'occupied';
+    return `
+      <div class="location-cell ${cls}" onclick="openLocationModal('${l.id}')">
+        <div class="loc-name">${l.locId}</div>
+        <div class="loc-count">${stock} / ${l.capacity}</div>
+        <span class="badge ${locTypeBadge(l.type)} loc-type">${locTypeLabel(l.type)}</span>
+      </div>
+    `;
+  }).join('');
+
+  // table view
+  const tbody = document.getElementById('locationTable');
+  if (locations.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><i class="fas fa-map"></i><p>ロケーションが未登録です</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = locations.map(l => {
+    const stock = getLocationStock(l.id);
+    const pct = l.capacity > 0 ? Math.round((stock / l.capacity) * 100) : 0;
+    const barColor = pct >= 90 ? 'var(--danger)' : pct >= 60 ? 'var(--warning)' : 'var(--success)';
+    return `
+      <tr>
+        <td><strong>${l.locId}</strong></td>
+        <td>${l.name}</td>
+        <td><span class="badge ${locTypeBadge(l.type)}">${locTypeLabel(l.type)}</span></td>
+        <td>${l.capacity}</td>
+        <td>${stock}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;background:#e2e8f0;border-radius:10px;height:6px;">
+              <div style="width:${pct}%;background:${barColor};height:6px;border-radius:10px;transition:width 0.3s;"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);width:32px;">${pct}%</span>
+          </div>
+        </td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm btn-icon" onclick="openLocationModal('${l.id}')" title="編集"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('location','${l.id}','${l.name.replace(/'/g,"&#39;")}')" title="削除"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openLocationModal(id = null) {
+  document.getElementById('locationModalTitle').textContent = id ? 'ロケーション編集' : 'ロケーション追加';
+  document.getElementById('editLocationId').value = id || '';
+
+  if (id) {
+    const l = getLocation(id);
+    if (!l) return;
+    document.getElementById('lId').value = l.locId;
+    document.getElementById('lName').value = l.name;
+    document.getElementById('lArea').value = l.area || '';
+    document.getElementById('lType').value = l.type;
+    document.getElementById('lCapacity').value = l.capacity;
+    document.getElementById('lNote').value = l.note || '';
+  } else {
+    ['lId','lName','lArea','lNote'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('lType').value = 'shelf';
+    document.getElementById('lCapacity').value = '100';
+  }
+  openModal('locationModal');
+}
+
+function saveLocation() {
+  const id = document.getElementById('editLocationId').value;
+  const locId = document.getElementById('lId').value.trim();
+  const name = document.getElementById('lName').value.trim();
+
+  if (!locId || !name) { toast('IDと名称は必須です', 'error'); return; }
+
+  const locations = load(KEYS.locations);
+  const dup = locations.find(l => l.locId === locId && l.id !== id);
+  if (dup) { toast('このロケーションIDはすでに存在します', 'error'); return; }
+
+  const data = {
+    locId, name,
+    area: document.getElementById('lArea').value.trim(),
+    type: document.getElementById('lType').value,
+    capacity: parseInt(document.getElementById('lCapacity').value) || 100,
+    note: document.getElementById('lNote').value.trim(),
+  };
+
+  if (id) {
+    const idx = locations.findIndex(l => l.id === id);
+    if (idx >= 0) locations[idx] = { ...locations[idx], ...data };
+    toast('ロケーションを更新しました', 'success');
+  } else {
+    locations.push({ id: genId(), ...data, createdAt: nowStr() });
+    toast('ロケーションを追加しました', 'success');
+  }
+
+  save(KEYS.locations, locations);
+  closeModal('locationModal');
+  renderLocations();
+}
+
+// =============================================
+// RECEIVING
+// =============================================
+
+function renderReceiving() {
+  // populate selects
+  const products = load(KEYS.products);
+  const locations = load(KEYS.locations);
+
+  document.getElementById('rcvProduct').innerHTML =
+    '<option value="">— 製品を選択 —</option>' +
+    products.map(p => `<option value="${p.id}">${p.sku} - ${p.name}</option>`).join('');
+
+  document.getElementById('rcvLocation').innerHTML =
+    '<option value="">— ロケーションを選択 —</option>' +
+    locations.map(l => `<option value="${l.id}">${l.locId} - ${l.name}</option>`).join('');
+
+  document.getElementById('rcvDate').value = todayStr();
+
+  renderReceivingHistory();
+}
+
+function renderReceivingHistory() {
+  const txs = load(KEYS.transactions)
+    .filter(t => t.type === 'in')
+    .reverse()
+    .slice(0, 20);
+
+  const el = document.getElementById('receivingHistory');
+  if (txs.length === 0) {
+    el.innerHTML = '<div class="empty"><i class="fas fa-history"></i><p>入庫履歴なし</p></div>';
+    return;
+  }
+  el.innerHTML = txs.map(t => {
+    const p = getProduct(t.productId);
+    const l = getLocation(t.locationId);
+    return `
+      <div class="history-item">
+        <div class="history-icon in"><i class="fas fa-arrow-down"></i></div>
+        <div class="history-info">
+          <div class="h-product">${p ? p.name : '不明'} <span class="badge badge-green">+${t.qty}${p ? p.unit : ''}</span></div>
+          <div class="h-detail">${l ? l.name : '—'} · ${t.date}${t.lot ? ' · LOT: '+t.lot : ''}</div>
+        </div>
+        <span class="text-muted">${t.createdAt}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function submitReceiving() {
+  const productId = document.getElementById('rcvProduct').value;
+  const locationId = document.getElementById('rcvLocation').value;
+  const qty = parseInt(document.getElementById('rcvQty').value);
+  const date = document.getElementById('rcvDate').value;
+  const lot = document.getElementById('rcvLot').value.trim();
+  const note = document.getElementById('rcvNote').value.trim();
+
+  if (!productId || !locationId || !qty || qty <= 0 || !date) {
+    toast('必須項目を入力してください', 'error'); return;
+  }
+
+  // add transaction
+  const transactions = load(KEYS.transactions);
+  const tx = { id: genId(), type: 'in', productId, locationId, qty, date, lot, note, dest: '', createdAt: nowStr() };
+  transactions.push(tx);
+  save(KEYS.transactions, transactions);
+
+  // update inventory
+  const inventory = load(KEYS.inventory);
+  const invIdx = inventory.findIndex(i => i.productId === productId && i.locationId === locationId);
+  if (invIdx >= 0) {
+    inventory[invIdx].qty += qty;
+    inventory[invIdx].updatedAt = nowStr();
+  } else {
+    inventory.push({ id: genId(), productId, locationId, qty, updatedAt: nowStr() });
+  }
+  save(KEYS.inventory, inventory);
+
+  const p = getProduct(productId);
+  toast(`入庫完了: ${p?.name || ''} +${qty}${p?.unit || ''}`, 'success');
+
+  // reset
+  document.getElementById('rcvProduct').value = '';
+  document.getElementById('rcvQty').value = '1';
+  document.getElementById('rcvLocation').value = '';
+  document.getElementById('rcvLot').value = '';
+  document.getElementById('rcvNote').value = '';
+
+  renderReceivingHistory();
+}
+
+// =============================================
+// SHIPPING
+// =============================================
+
+function renderShipping() {
+  const products = load(KEYS.products);
+  const locations = load(KEYS.locations);
+
+  document.getElementById('shipProduct').innerHTML =
+    '<option value="">— 製品を選択 —</option>' +
+    products.map(p => `<option value="${p.id}">${p.sku} - ${p.name}</option>`).join('');
+
+  document.getElementById('shipLocation').innerHTML =
+    '<option value="">— ロケーションを選択 —</option>' +
+    locations.map(l => `<option value="${l.id}">${l.locId} - ${l.name}</option>`).join('');
+
+  document.getElementById('shipDate').value = todayStr();
+
+  renderShippingHistory();
+}
+
+function updateShipLocation() {
+  const productId = document.getElementById('shipProduct').value;
+  if (!productId) {
+    document.getElementById('shipStockInfo').style.display = 'none';
+    return;
+  }
+
+  const inventory = load(KEYS.inventory).filter(i => i.productId === productId && i.qty > 0);
+  const locations = load(KEYS.locations);
+
+  // Show stock info
+  const p = getProduct(productId);
+  const totalStock = inventory.reduce((s, i) => s + i.qty, 0);
+  const infoEl = document.getElementById('shipStockInfo');
+  infoEl.style.display = 'block';
+  infoEl.innerHTML = `<strong>在庫: ${totalStock}${p?.unit || ''}</strong> (${inventory.length}ロケーション)`;
+
+  // Update location select to show only locations with stock
+  const shipLoc = document.getElementById('shipLocation');
+  if (inventory.length > 0) {
+    shipLoc.innerHTML = '<option value="">— ロケーションを選択 —</option>' +
+      inventory.map(i => {
+        const l = locations.find(loc => loc.id === i.locationId);
+        return l ? `<option value="${l.id}">${l.locId} - ${l.name} (${i.qty}${p?.unit || ''})</option>` : '';
+      }).filter(Boolean).join('');
+  }
+}
+
+function renderShippingHistory() {
+  const txs = load(KEYS.transactions)
+    .filter(t => t.type === 'out')
+    .reverse()
+    .slice(0, 20);
+
+  const el = document.getElementById('shippingHistory');
+  if (txs.length === 0) {
+    el.innerHTML = '<div class="empty"><i class="fas fa-history"></i><p>出荷履歴なし</p></div>';
+    return;
+  }
+  el.innerHTML = txs.map(t => {
+    const p = getProduct(t.productId);
+    const l = getLocation(t.locationId);
+    return `
+      <div class="history-item">
+        <div class="history-icon out"><i class="fas fa-arrow-up"></i></div>
+        <div class="history-info">
+          <div class="h-product">${p ? p.name : '不明'} <span class="badge badge-red">-${t.qty}${p ? p.unit : ''}</span></div>
+          <div class="h-detail">${l ? l.name : '—'} · ${t.date}${t.dest ? ' → '+t.dest : ''}</div>
+        </div>
+        <span class="text-muted">${t.createdAt}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function submitShipping() {
+  const productId = document.getElementById('shipProduct').value;
+  const locationId = document.getElementById('shipLocation').value;
+  const qty = parseInt(document.getElementById('shipQty').value);
+  const date = document.getElementById('shipDate').value;
+  const dest = document.getElementById('shipDest').value.trim();
+  const note = document.getElementById('shipNote').value.trim();
+
+  if (!productId || !locationId || !qty || qty <= 0 || !date) {
+    toast('必須項目を入力してください', 'error'); return;
+  }
+
+  // check stock
+  const currentStock = getStockByProductAndLocation(productId, locationId);
+  if (currentStock < qty) {
+    const p = getProduct(productId);
+    toast(`在庫不足: 現在 ${currentStock}${p?.unit || ''} (出荷希望: ${qty})`, 'error');
+    return;
+  }
+
+  // add transaction
+  const transactions = load(KEYS.transactions);
+  const tx = { id: genId(), type: 'out', productId, locationId, qty, date, lot: '', note, dest, createdAt: nowStr() };
+  transactions.push(tx);
+  save(KEYS.transactions, transactions);
+
+  // update inventory
+  const inventory = load(KEYS.inventory);
+  const invIdx = inventory.findIndex(i => i.productId === productId && i.locationId === locationId);
+  if (invIdx >= 0) {
+    inventory[invIdx].qty -= qty;
+    inventory[invIdx].updatedAt = nowStr();
+    if (inventory[invIdx].qty <= 0) inventory.splice(invIdx, 1);
+  }
+  save(KEYS.inventory, inventory);
+
+  const p = getProduct(productId);
+  toast(`出荷完了: ${p?.name || ''} -${qty}${p?.unit || ''}`, 'success');
+
+  // reset
+  document.getElementById('shipProduct').value = '';
+  document.getElementById('shipQty').value = '1';
+  document.getElementById('shipDest').value = '';
+  document.getElementById('shipNote').value = '';
+  document.getElementById('shipStockInfo').style.display = 'none';
+  document.getElementById('shipLocation').innerHTML = '<option value="">— ロケーションを選択 —</option>' +
+    load(KEYS.locations).map(l => `<option value="${l.id}">${l.locId} - ${l.name}</option>`).join('');
+
+  renderShippingHistory();
+}
+
+// =============================================
+// INVENTORY
+// =============================================
+
+function renderInventory() {
+  const q = (document.getElementById('invSearch')?.value || '').toLowerCase();
+  const filterLoc = document.getElementById('invLocation')?.value || '';
+
+  // populate location filter
+  const locations = load(KEYS.locations);
+  const invLocEl = document.getElementById('invLocation');
+  if (invLocEl && invLocEl.options.length === 1) {
+    locations.forEach(l => {
+      const o = document.createElement('option');
+      o.value = l.id; o.textContent = l.name;
+      invLocEl.appendChild(o);
+    });
+  }
+
+  const products = load(KEYS.products);
+  const inventory = load(KEYS.inventory);
+
+  let rows = [];
+  inventory.forEach(inv => {
+    const p = products.find(x => x.id === inv.productId);
+    const l = locations.find(x => x.id === inv.locationId);
+    if (!p || !l) return;
+    if (filterLoc && inv.locationId !== filterLoc) return;
+    if (q && !p.name.toLowerCase().includes(q) && !p.sku.toLowerCase().includes(q) && !l.name.toLowerCase().includes(q)) return;
+    rows.push({ inv, p, l });
+  });
+
+  const tbody = document.getElementById('inventoryTable');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><i class="fas fa-search"></i><p>在庫データなし</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(({ inv, p, l }) => {
+    const status = inv.qty === 0 ? ['badge-red', '欠品'] : inv.qty <= p.safetyStock ? ['badge-yellow', '要補充'] : ['badge-green', '正常'];
+    return `
+      <tr>
+        <td><strong>${p.name}</strong><br><span class="text-muted">${p.desc || ''}</span></td>
+        <td><span class="badge badge-gray">${p.sku}</span></td>
+        <td>
+          <span class="badge ${locTypeBadge(l.type)}">${l.locId}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">${l.name}</span>
+        </td>
+        <td><strong style="font-size:16px;">${inv.qty}</strong></td>
+        <td>${p.unit}</td>
+        <td>${p.safetyStock}</td>
+        <td><span class="badge ${status[0]}">${status[1]}</span></td>
+        <td><span class="text-muted">${inv.updatedAt}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// =============================================
+// HISTORY
+// =============================================
+
+function renderHistory() {
+  const q = (document.getElementById('histSearch')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('histType')?.value || '';
+
+  const products = load(KEYS.products);
+  const locations = load(KEYS.locations);
+  let txs = load(KEYS.transactions).reverse();
+
+  if (typeFilter) txs = txs.filter(t => t.type === typeFilter);
+  if (q) {
+    txs = txs.filter(t => {
+      const p = products.find(x => x.id === t.productId);
+      const l = locations.find(x => x.id === t.locationId);
+      return (p && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)))
+        || (l && l.name.toLowerCase().includes(q))
+        || (t.dest || '').toLowerCase().includes(q)
+        || (t.lot || '').toLowerCase().includes(q);
+    });
+  }
+
+  const tbody = document.getElementById('historyTable');
+  if (txs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><i class="fas fa-history"></i><p>履歴なし</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = txs.map(t => {
+    const p = products.find(x => x.id === t.productId);
+    const l = locations.find(x => x.id === t.locationId);
+    const isIn = t.type === 'in';
+    return `
+      <tr>
+        <td><span class="text-muted">${t.createdAt}</span></td>
+        <td><span class="badge ${isIn ? 'badge-green' : 'badge-red'}">${isIn ? '入庫' : '出荷'}</span></td>
+        <td>
+          <strong>${p ? p.name : '不明'}</strong><br>
+          <span class="text-muted">${p ? p.sku : ''}</span>
+        </td>
+        <td><strong style="color:${isIn ? 'var(--success)' : 'var(--danger)'}">${isIn ? '+' : '-'}${t.qty}${p ? p.unit : ''}</strong></td>
+        <td>${l ? `<span class="badge badge-gray">${l.locId}</span> ${l.name}` : '—'}</td>
+        <td>${t.lot || t.dest || '—'}</td>
+        <td><span class="text-muted">${t.note || '—'}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// =============================================
+// DELETE
+// =============================================
+
+function confirmDelete(type, id, name) {
+  const msgs = {
+    product: `製品「${name}」を削除しますか？関連する在庫データも削除されます。`,
+    location: `ロケーション「${name}」を削除しますか？`,
+  };
+  document.getElementById('deleteMessage').textContent = msgs[type] || '削除しますか？';
+  document.getElementById('deleteConfirmBtn').onclick = () => {
+    if (type === 'product') deleteProduct(id);
+    else if (type === 'location') deleteLocation(id);
+  };
+  openModal('deleteModal');
+}
+
+function deleteProduct(id) {
+  const products = load(KEYS.products).filter(p => p.id !== id);
+  save(KEYS.products, products);
+  const inventory = load(KEYS.inventory).filter(i => i.productId !== id);
+  save(KEYS.inventory, inventory);
+  toast('製品を削除しました', 'warning');
+  closeModal('deleteModal');
+  renderProducts();
+}
+
+function deleteLocation(id) {
+  const locations = load(KEYS.locations).filter(l => l.id !== id);
+  save(KEYS.locations, locations);
+  toast('ロケーションを削除しました', 'warning');
+  closeModal('deleteModal');
+  renderLocations();
+}
+
+// =============================================
+// MODAL HELPERS
+// =============================================
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// click outside to close
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => {
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// =============================================
+// TOAST
+// =============================================
+
+function toast(msg, type = 'success') {
+  const icons = { success: 'check-circle', error: 'times-circle', warning: 'exclamation-circle' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="fas fa-${icons[type] || 'info-circle'}"></i> ${msg}`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// =============================================
+// INIT
+// =============================================
+
+initSampleData();
+showView('dashboard');
+</script>
+</body>
+</html>

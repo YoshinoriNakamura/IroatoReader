@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テスト用ロケーションカメレオンコード</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: #f8fafc; padding: 20px 16px;
+    color: #111827;
+  }
+  h1 { font-size: 20px; font-weight: 700; color: #6d28d9; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+
+  .hint {
+    background: #faf5ff; border: 1px solid #c4b5fd;
+    border-radius: 8px; padding: 12px 16px;
+    font-size: 13px; color: #5b21b6; margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  .hint strong { font-weight: 700; }
+
+  .process-flow {
+    display: flex; align-items: center; gap: 6px;
+    background: #faf5ff; border: 1px solid #c4b5fd;
+    border-radius: 8px; padding: 10px 14px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .pf-step {
+    background: #6d28d9; color: #fff;
+    font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 6px;
+  }
+  .pf-step.step2 { background: #1e40af; }
+  .pf-arrow { color: #6b7280; font-size: 14px; }
+  .pf-label { font-size: 12px; color: #374151; }
+
+  .actions {
+    display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+  }
+  .btn-primary { background: #6d28d9; color: #fff; }
+  .btn-outline { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+
+  /* カードグリッド: 2列 */
+  .loc-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  @media (min-width: 700px) {
+    .loc-list { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .loc-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .loc-header {
+    background: #6d28d9; color: #fff;
+    padding: 8px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .loc-header .loc-num { font-size: 12px; font-weight: 700; opacity: .85; }
+  .loc-header .loc-name { font-size: 15px; font-weight: 700; }
+  .loc-header .loc-code-badge {
+    background: rgba(255,255,255,.2);
+    font-size: 11px; font-family: monospace;
+    padding: 2px 8px; border-radius: 10px;
+  }
+
+  .loc-body { padding: 14px 12px; text-align: center; }
+
+  .cc-type {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .8px;
+    color: #6d28d9; margin-bottom: 10px;
+  }
+
+  .cc-img {
+    max-width: 160px; width: 100%; height: auto;
+    border: 2px solid #e5e7eb; border-radius: 8px;
+    display: block; margin: 0 auto;
+    image-rendering: pixelated;
+  }
+  .cc-missing {
+    max-width: 160px; width: 100%;
+    height: 80px; display: flex; align-items: center;
+    justify-content: center; color: #9ca3af; font-size: 11px;
+    border: 2px dashed #d1d5db; border-radius: 8px;
+    margin: 0 auto; text-align: center; line-height: 1.5;
+  }
+
+  .loc-footer {
+    background: #faf5ff; border-top: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: center;
+  }
+  .loc-code-val {
+    font-family: monospace; font-size: 12px; font-weight: 700;
+    color: #5b21b6; display: block; margin-bottom: 4px;
+  }
+  .scan-hint { font-size: 10px; color: #9ca3af; }
+
+  /* マスタ登録ボタン */
+  .btn-register {
+    margin-top: 8px; width: 100%; padding: 7px;
+    background: #ede9fe; border: 1px solid #c4b5fd;
+    border-radius: 8px; font-size: 12px; font-weight: 600;
+    color: #6d28d9; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-register:active { background: #ddd6fe; }
+  .btn-register.done {
+    background: #e8f4e8; border-color: #b2dfcd; color: #2d7a4f;
+  }
+
+  /* トースト */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; color: white;
+    padding: 10px 22px; border-radius: 24px;
+    font-size: 14px; font-weight: 600;
+    opacity: 0; transition: opacity 0.3s;
+    z-index: 9999; white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* 印刷用 */
+  @media print {
+    body { background: #fff; padding: 8px; }
+    .no-print { display: none !important; }
+    .loc-list { gap: 10px; }
+    .loc-card { break-inside: avoid; box-shadow: none; }
+    .btn-register { display: none; }
+    /* 印刷時は少し大きく */
+    .cc-img { max-width: 200px; }
+    .loc-header .loc-name { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📍 ロケーション ラベルシート</h1>
+<p class="subtitle">ロケーション 1〜6 のカメレオンコード（各保管場所に貼り付けて使用）</p>
+
+<div class="process-flow no-print">
+  <div class="pf-step">STEP 1</div>
+  <div class="pf-arrow">→</div>
+  <div class="pf-label">このシートを印刷して各ロケーションに貼る</div>
+  <div class="pf-arrow">　→　</div>
+  <div class="pf-step step2">STEP 2</div>
+  <div class="pf-arrow">→</div>
+  <div class="pf-label">ロケーション登録画面でスキャン</div>
+</div>
+
+<div class="hint no-print">
+  💡 <strong>使い方：</strong>
+  PCでこのページを印刷し、各カードを切り取って対応するロケーションに貼ってください。<br>
+  iPhoneの <code>02_location.html</code>（ロケーション登録）の <strong>STEP1</strong> で各ロケーションのコードをスキャンします。<br>
+  「📍 マスタ登録」ボタンでロケーションマスタにも一括登録できます。
+</div>
+
+<div class="actions no-print">
+  <button class="btn btn-primary" onclick="window.print()">🖨 印刷する</button>
+  <button class="btn btn-outline" onclick="location.href='02_location.html'">📍 ロケーション登録を開く</button>
+  <button class="btn btn-outline" onclick="location.href='pc_location_master.html'">📋 マスタ管理</button>
+  <button class="btn btn-outline" onclick="location.href='index.html'">🏠 メニュー</button>
+</div>
+
+<div class="loc-list">
+
+  <!-- ロケーション 1 -->
+  <div class="loc-card" id="card-1">
+    <div class="loc-header">
+      <span class="loc-num">No.1</span>
+      <span class="loc-name">受入ドック</span>
+      <span class="loc-code-badge">IN-01</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc1.png" alt="ロケーション1 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc1.png<br>(00000090.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">IN-01 / 受入ドック</span>
+      <span class="scan-hint">CCコード: 90　ファイル: loc1.png</span>
+      <button class="btn-register no-print" id="regbtn-1" onclick="registerLoc(1,'IN-01','受入ドック','loc1.png','90')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+  <!-- ロケーション 2 -->
+  <div class="loc-card" id="card-2">
+    <div class="loc-header">
+      <span class="loc-num">No.2</span>
+      <span class="loc-name">保管ゾーンA-1</span>
+      <span class="loc-code-badge">ST-A1</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc2.png" alt="ロケーション2 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc2.png<br>(00000091.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">ST-A1 / 保管ゾーンA-1</span>
+      <span class="scan-hint">CCコード: 91　ファイル: loc2.png</span>
+      <button class="btn-register no-print" id="regbtn-2" onclick="registerLoc(2,'ST-A1','保管ゾーンA-1','loc2.png','91')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+  <!-- ロケーション 3 -->
+  <div class="loc-card" id="card-3">
+    <div class="loc-header">
+      <span class="loc-num">No.3</span>
+      <span class="loc-name">保管ゾーンA-2</span>
+      <span class="loc-code-badge">ST-A2</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc3.png" alt="ロケーション3 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc3.png<br>(00000092.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">ST-A2 / 保管ゾーンA-2</span>
+      <span class="scan-hint">CCコード: 92　ファイル: loc3.png</span>
+      <button class="btn-register no-print" id="regbtn-3" onclick="registerLoc(3,'ST-A2','保管ゾーンA-2','loc3.png','92')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+  <!-- ロケーション 4 -->
+  <div class="loc-card" id="card-4">
+    <div class="loc-header">
+      <span class="loc-num">No.4</span>
+      <span class="loc-name">保管ゾーンB-1</span>
+      <span class="loc-code-badge">ST-B1</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc4.png" alt="ロケーション4 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc4.png<br>(00000093.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">ST-B1 / 保管ゾーンB-1</span>
+      <span class="scan-hint">CCコード: 93　ファイル: loc4.png</span>
+      <button class="btn-register no-print" id="regbtn-4" onclick="registerLoc(4,'ST-B1','保管ゾーンB-1','loc4.png','93')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+  <!-- ロケーション 5 -->
+  <div class="loc-card" id="card-5">
+    <div class="loc-header">
+      <span class="loc-num">No.5</span>
+      <span class="loc-name">保管ゾーンB-2</span>
+      <span class="loc-code-badge">ST-B2</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc5.png" alt="ロケーション5 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc5.png<br>(00000094.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">ST-B2 / 保管ゾーンB-2</span>
+      <span class="scan-hint">CCコード: 94　ファイル: loc5.png</span>
+      <button class="btn-register no-print" id="regbtn-5" onclick="registerLoc(5,'ST-B2','保管ゾーンB-2','loc5.png','94')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+  <!-- ロケーション 6 -->
+  <div class="loc-card" id="card-6">
+    <div class="loc-header">
+      <span class="loc-num">No.6</span>
+      <span class="loc-name">出荷ドック</span>
+      <span class="loc-code-badge">OUT-01</span>
+    </div>
+    <div class="loc-body">
+      <div class="cc-type">カメレオンコード（ロケーションラベル）</div>
+      <img class="cc-img" src="loc6.png" alt="ロケーション6 CCコード"
+        onerror="this.outerHTML='<div class=\'cc-missing\'>loc6.png<br>(00000095.png)<br>が見つかりません</div>'">
+    </div>
+    <div class="loc-footer">
+      <span class="loc-code-val">OUT-01 / 出荷ドック</span>
+      <span class="scan-hint">CCコード: 95　ファイル: loc6.png</span>
+      <button class="btn-register no-print" id="regbtn-6" onclick="registerLoc(6,'OUT-01','出荷ドック','loc6.png','95')">
+        📍 マスタ登録
+      </button>
+    </div>
+  </div>
+
+</div><!-- /loc-list -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LOCATION_MASTER_KEY = 'wms_location_master';
+
+function getLocationMaster() {
+  const raw = localStorage.getItem(LOCATION_MASTER_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+// 既登録チェックしてボタンをアップデート
+function checkRegistered() {
+  const master = getLocationMaster().filter(l => !l.deletedAt);
+  for (let i = 1; i <= 6; i++) {
+    const codes = ['IN-01','ST-A1','ST-A2','ST-B1','ST-B2','OUT-01'];
+    const btn = document.getElementById('regbtn-' + i);
+    if (!btn) continue;
+    const alreadyReg = master.find(l => l.code === codes[i-1]);
+    if (alreadyReg) {
+      btn.textContent = '✅ 登録済み';
+      btn.classList.add('done');
+    }
+  }
+}
+
+function registerLoc(num, code, name, filename, ccCode) {
+  const master = getLocationMaster();
+  const existIdx = master.findIndex(l => l.code === code);
+  const now = new Date().toISOString();
+
+  // auth.jsが利用可能ならユーザー名取得
+  let user = 'system';
+  try {
+    if (typeof WMSAuth !== 'undefined') user = WMSAuth.getCurrentUserName();
+  } catch(e) {}
+
+  if (existIdx >= 0) {
+    master[existIdx] = {
+      ...master[existIdx],
+      name,
+      ccCode: ccCode,
+      updatedAt: now,
+      updatedBy: user
+    };
+  } else {
+    master.push({
+      id: 'LOC_' + Date.now() + '_' + num,
+      code,
+      name,
+      ccCode: ccCode,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      createdBy: user,
+      updatedBy: user,
+      deletedBy: null
+    });
+  }
+
+  localStorage.setItem(LOCATION_MASTER_KEY, JSON.stringify(master));
+
+  const btn = document.getElementById('regbtn-' + num);
+  btn.textContent = '✅ 登録済み';
+  btn.classList.add('done');
+
+  showToast(`✅ ${name}（${code}）をマスタに登録しました`);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// 初期化
+checkRegistered();
+</script>
+</body>
+</html>

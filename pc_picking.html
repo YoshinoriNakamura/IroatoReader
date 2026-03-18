@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IroatoWMS - ピッキングリスト作成</title>
+<script src="auth.js?v=3"></script>
+<style>
+  :root {
+    --primary:  #1a56db;
+    --success:  #057a55;
+    --danger:   #c81e1e;
+    --warning:  #b45309;
+    --pick:     #0891b2;   /* ピッキング固有カラー */
+    --location: #6d28d9;
+    --bg:       #f1f5f9;
+    --surface:  #ffffff;
+    --border:   #e2e8f0;
+    --text:     #0f172a;
+    --muted:    #64748b;
+    --sidebar-w: 360px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', sans-serif;
+    font-size: 14px; color: var(--text); min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: var(--pick);
+    color: #fff; padding: 0 24px;
+    height: 56px;
+    display: flex; align-items: center; gap: 20px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  }
+  .topbar-brand { font-size: 18px; font-weight: 800; letter-spacing: -.3px; white-space: nowrap; }
+  .topbar-brand span { opacity: .6; font-weight: 400; margin-left: 6px; font-size: 14px; }
+  .topbar-search {
+    flex: 1; max-width: 360px;
+    display: flex; align-items: center;
+    background: rgba(255,255,255,.15); border-radius: 8px;
+    padding: 0 12px; gap: 8px;
+  }
+  .topbar-search input {
+    background: transparent; border: none; outline: none;
+    color: #fff; font-size: 14px; width: 100%; padding: 9px 0;
+  }
+  .topbar-search input::placeholder { color: rgba(255,255,255,.6); }
+  .topbar-search .search-icon { opacity: .7; font-size: 16px; }
+  .topbar-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .topbar-date { font-size: 13px; opacity: .75; }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; padding: 0 24px; gap: 0;
+  }
+  .nav-tab {
+    padding: 12px 20px; font-size: 14px; font-weight: 600;
+    color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent;
+    transition: color .2s, border-color .2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-tab:hover { color: var(--pick); }
+  .nav-tab.active { color: var(--pick); border-bottom-color: var(--pick); }
+  .nav-tab .tab-badge {
+    background: var(--pick); color: #fff;
+    border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 700;
+  }
+  .nav-tab.active .tab-badge { background: var(--pick); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex; height: calc(100vh - 96px);
+  }
+
+  /* ── LEFT PANEL (Inventory) ── */
+  .panel-left {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+  }
+
+  /* ── RIGHT SIDEBAR (Picking List Builder) ── */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+  }
+  .sidebar-title { font-size: 15px; font-weight: 700; color: var(--pick); }
+  .sidebar-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .sidebar-body { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .filter-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 12px; font-weight: 600; cursor: pointer; color: var(--muted);
+    transition: all .15s;
+  }
+  .filter-btn:hover { border-color: var(--pick); color: var(--pick); }
+  .filter-btn.active { background: var(--pick); border-color: var(--pick); color: #fff; }
+  .filter-sep { color: var(--border); }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex; gap: 12px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; flex: 1;
+    min-width: 0;
+  }
+  .stat-value { font-size: 24px; font-weight: 800; color: var(--text); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .stat-card.highlight { border-color: var(--pick); }
+  .stat-card.highlight .stat-value { color: var(--pick); }
+
+  /* ── LOCATION GROUP ── */
+  .loc-group { margin-bottom: 16px; }
+  .loc-group-header {
+    display: flex; align-items: center; gap: 10px;
+    background: #f8fafc; border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0; padding: 10px 14px;
+    cursor: pointer; user-select: none;
+  }
+  .loc-group-header:hover { background: #f1f5f9; }
+  .loc-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--pick); }
+  .loc-code { font-size: 14px; font-weight: 700; color: var(--location); font-family: monospace; }
+  .loc-count { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  .loc-sel-count { font-size: 12px; color: var(--pick); font-weight: 600; margin-left: auto; }
+  .loc-toggle { color: var(--muted); font-size: 12px; }
+
+  /* ── ITEM TABLE ── */
+  .item-table {
+    width: 100%; border-collapse: collapse;
+    border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 10px 10px; overflow: hidden;
+    background: var(--surface);
+  }
+  .item-table th {
+    background: #f8fafc; font-size: 11px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .3px;
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .item-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .item-table tr:last-child td { border-bottom: none; }
+  .item-table tr.selected { background: #eff6ff; }
+  .item-table tr.selected td { border-bottom-color: #bfdbfe; }
+  .item-table tr:hover { background: #f8fafc; }
+  .item-table tr.selected:hover { background: #dbeafe; }
+
+  .item-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--pick); }
+  .item-cc { font-size: 12px; color: var(--success); font-family: monospace; font-weight: 600; }
+  .item-bc { font-size: 13px; font-weight: 700; font-family: monospace; }
+  .item-name { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item-qty { font-size: 13px; font-weight: 700; text-align: center; }
+
+  /* ── BADGE ── */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+  .badge-cyan   { background: #cffafe; color: #155e75; }
+  .badge-orange { background: #fff7ed; color: #9a3412; }
+
+  /* ── SIDEBAR SELECTED ITEMS ── */
+  .sel-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  .sel-item:last-child { border-bottom: none; }
+  .sel-item-remove {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fee2e2; color: #991b1b; border: none;
+    font-size: 13px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .sel-item-remove:hover { background: #fecaca; }
+  .sel-item-info { flex: 1; min-width: 0; }
+  .sel-item-loc { font-size: 11px; color: var(--location); font-weight: 600; }
+  .sel-item-bc  { font-size: 13px; font-weight: 700; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sel-item-cc  { font-size: 11px; color: var(--muted); font-family: monospace; }
+  .sel-item-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .sidebar-empty {
+    padding: 32px 16px; text-align: center; color: var(--muted);
+  }
+  .sidebar-empty-icon { font-size: 36px; margin-bottom: 8px; }
+  .sidebar-empty-text { font-size: 13px; }
+
+  /* ── LIST NAME INPUT ── */
+  .list-name-wrap { margin-bottom: 12px; }
+  .list-name-input {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--text);
+  }
+  .list-name-input:focus { outline: none; border-color: var(--pick); box-shadow: 0 0 0 3px rgba(8,145,178,.12); }
+  .list-name-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 10px 18px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--pick); color: #fff; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--pick); color: var(--pick); }
+  .btn-danger  { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-full { width: 100%; justify-content: center; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* ── PICKING LISTS TAB ── */
+  .pl-list { padding: 20px 24px; }
+  .pl-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 12px;
+    overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .pl-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .pl-card-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; cursor: pointer;
+    border-bottom: 1px solid transparent;
+  }
+  .pl-card.open .pl-card-header { border-bottom-color: var(--border); }
+  .pl-card-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .pl-card-meta  { font-size: 12px; color: var(--muted); }
+  .pl-card-body  { display: none; padding: 14px 18px; }
+  .pl-card.open .pl-card-body { display: block; }
+  .pl-item-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .pl-item-row:last-child { border-bottom: none; }
+  .pl-item-loc  { font-size: 11px; color: var(--location); font-weight: 700; width: 80px; flex-shrink: 0; font-family: monospace; }
+  .pl-item-bc   { font-family: monospace; font-weight: 700; flex: 1; }
+  .pl-item-cc   { font-size: 11px; color: var(--success); font-family: monospace; }
+  .pl-item-status { font-size: 11px; }
+
+  .pl-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+  /* ── STATUS SELECT ── */
+  .status-select {
+    padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text);
+    background: var(--surface);
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 56px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty-state p { font-size: 14px; }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 500; display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #0f172a; color: #fff;
+    padding: 12px 18px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.25);
+    animation: toastIn .3s ease; pointer-events: all;
+    min-width: 240px; max-width: 360px;
+  }
+  .toast.success { border-left: 4px solid #34d399; }
+  .toast.error   { border-left: 4px solid #f87171; }
+  .toast.warning { border-left: 4px solid #fbbf24; }
+  @keyframes toastIn { from { transform: translateX(40px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 200; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-box {
+    background: var(--surface); border-radius: 16px;
+    padding: 28px; width: 480px; max-width: 95vw;
+    transform: scale(.95); transition: transform .2s;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .modal-overlay.open .modal-box { transform: scale(1); }
+  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── PRINT ── */
+  @media print {
+    .topbar, .nav-tabs, .sidebar, .filter-bar, .stats-bar, .toast-wrap { display: none !important; }
+    .main { height: auto; }
+    .panel-left { padding: 0; }
+    .item-check, .sel-item-remove { display: none; }
+    .loc-group { break-inside: avoid; }
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">📋 WMS <span>ピッキングリスト作成</span></div>
+  <div class="topbar-search">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="バーコード・製品名・CCコードで検索…" oninput="applyFilters()">
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-date" id="topbarDate"></span>
+  </div>
+</div>
+
+<!-- NAV TABS -->
+<div class="nav-tabs">
+  <div class="nav-tab active" id="tab-stock" onclick="switchTab('stock')">
+    📦 在庫一覧（ピッキング対象選択）
+    <span class="tab-badge" id="badge-located">0</span>
+  </div>
+  <div class="nav-tab" id="tab-lists" onclick="switchTab('lists')">
+    📋 ピッキングリスト
+    <span class="tab-badge" id="badge-lists">0</span>
+  </div>
+</div>
+
+<!-- ── TAB: STOCK ── -->
+<div class="main" id="view-stock">
+
+  <!-- Left Panel -->
+  <div class="panel-left" id="panelLeft">
+
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="statsBar"></div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <span class="filter-label">ロケーション:</span>
+      <button class="filter-btn active" id="filter-all" onclick="setLocFilter(null)">すべて</button>
+      <div id="locFilterBtns"></div>
+      <span class="filter-sep">|</span>
+      <button class="filter-btn" id="filter-unselected" onclick="toggleUnselectedFilter()">未選択のみ</button>
+    </div>
+
+    <!-- Item Groups -->
+    <div id="itemGroups"></div>
+
+  </div>
+
+  <!-- Right Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">🛒 選択アイテム</div>
+      <div class="sidebar-sub" id="sidebarSubTitle">0件選択中</div>
+    </div>
+    <div class="sidebar-body" id="sidebarBody">
+      <div class="sidebar-empty">
+        <div class="sidebar-empty-icon">🗒️</div>
+        <div class="sidebar-empty-text">在庫一覧からアイテムを<br>チェックして追加してください</div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="list-name-wrap">
+        <div class="list-name-label">ピッキングリスト名</div>
+        <input type="text" class="list-name-input" id="listNameInput" placeholder="例: 午前便ピッキング">
+      </div>
+      <button class="btn btn-primary btn-full" id="createListBtn" onclick="createPickingList()" disabled>
+        ✓ ピッキングリストを作成
+      </button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="clearSelection()">
+        選択をすべて解除
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── TAB: PICKING LISTS ── -->
+<div id="view-lists" style="display:none;">
+  <div class="pl-list" id="plListContainer"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-title" id="confirmTitle">確認</div>
+    <div id="confirmBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-danger" id="confirmOkBtn" onclick="">実行</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STORAGE KEYS
+// ============================================================
+const KEY_ITEMS    = 'wms_items';
+const KEY_TRANS    = 'wms_transactions';
+const KEY_PICK_LST = 'wms_picking_lists';
+
+// ============================================================
+// STATE
+// ============================================================
+let selectedIds   = new Set();   // 選択中アイテムID
+let currentLocFilter = null;     // null = すべて
+let showUnselectedOnly = false;
+let currentTab    = 'stock';
+let allItems      = [];          // ロケーション登録済みアイテム
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // 認証チェック（PC用は緩め：ログインがなければauth.htmlへ）
+  WMSAuth.requireAuth('auth.html');
+
+  document.getElementById('topbarDate').textContent = formatDateTime(new Date());
+  loadAndRender();
+});
+
+function loadAndRender() {
+  allItems = loadItems().filter(i => i.status === 'located');
+  renderStats();
+  renderLocFilters();
+  renderItemGroups();
+  renderSidebar();
+  renderPickingLists();
+  updateBadges();
+}
+
+// ============================================================
+// TABS
+// ============================================================
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-stock').className  = 'nav-tab' + (tab === 'stock'  ? ' active' : '');
+  document.getElementById('tab-lists').className  = 'nav-tab' + (tab === 'lists'  ? ' active' : '');
+  document.getElementById('view-stock').style.display = tab === 'stock'  ? 'flex' : 'none';
+  document.getElementById('view-lists').style.display = tab === 'lists'  ? 'block' : 'none';
+  if (tab === 'lists') renderPickingLists();
+}
+
+function updateBadges() {
+  document.getElementById('badge-located').textContent = allItems.length;
+  const lists = loadPickingLists();
+  document.getElementById('badge-lists').textContent = lists.length;
+}
+
+// ============================================================
+// STATS
+// ============================================================
+
+function renderStats() {
+  const locs = new Set(allItems.map(i => i.locationCCCode)).size;
+  const selected = selectedIds.size;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${allItems.length}</div>
+      <div class="stat-label">ピッキング可能件数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${locs}</div>
+      <div class="stat-label">ロケーション数</div>
+    </div>
+    <div class="stat-card highlight">
+      <div class="stat-value">${selected}</div>
+      <div class="stat-label">選択中件数</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+
+function getLocations() {
+  const locs = [...new Set(allItems.map(i => i.locationCCCode))].sort();
+  return locs;
+}
+
+function renderLocFilters() {
+  const locs = getLocations();
+  const container = document.getElementById('locFilterBtns');
+  container.innerHTML = locs.map(loc => `
+    <button class="filter-btn ${currentLocFilter === loc ? 'active' : ''}"
+      onclick="setLocFilter('${esc(loc)}')">${esc(loc)}</button>
+  `).join('');
+}
+
+function setLocFilter(loc) {
+  currentLocFilter = loc;
+  document.getElementById('filter-all').className = 'filter-btn' + (loc === null ? ' active' : '');
+  renderLocFilters();
+  renderItemGroups();
+}
+
+function toggleUnselectedFilter() {
+  showUnselectedOnly = !showUnselectedOnly;
+  const btn = document.getElementById('filter-unselected');
+  btn.className = 'filter-btn' + (showUnselectedOnly ? ' active' : '');
+  renderItemGroups();
+}
+
+function applyFilters() {
+  renderItemGroups();
+}
+
+function getFilteredItems() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  return allItems.filter(i => {
+    if (currentLocFilter && i.locationCCCode !== currentLocFilter) return false;
+    if (showUnselectedOnly && selectedIds.has(i.id)) return false;
+    if (q) {
+      const hay = [i.barcode, i.ccCode, i.productName || '', i.locationCCCode || ''].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ============================================================
+// ITEM GROUPS RENDER
+// ============================================================
+
+function renderItemGroups() {
+  const items = getFilteredItems();
+  const container = document.getElementById('itemGroups');
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📭</div>
+        <h3>対象アイテムがありません</h3>
+        <p>ロケーション登録済みのアイテムがないか、フィルター条件に一致するものがありません</p>
+      </div>`;
+    return;
+  }
+
+  // ロケーション別グループ化
+  const groups = {};
+  items.forEach(i => {
+    const loc = i.locationCCCode || '未登録';
+    if (!groups[loc]) groups[loc] = [];
+    groups[loc].push(i);
+  });
+
+  const locsSorted = Object.keys(groups).sort();
+
+  container.innerHTML = locsSorted.map(loc => {
+    const locItems = groups[loc];
+    const selCount = locItems.filter(i => selectedIds.has(i.id)).length;
+    const allSel   = selCount === locItems.length && locItems.length > 0;
+    const partSel  = selCount > 0 && !allSel;
+
+    return `
+      <div class="loc-group" id="group-${esc(loc)}">
+        <div class="loc-group-header" onclick="toggleGroup('${esc(loc)}')">
+          <input type="checkbox" class="loc-check"
+            ${allSel ? 'checked' : ''} ${partSel ? 'data-indeterminate="true"' : ''}
+            onclick="event.stopPropagation(); toggleLocAll('${esc(loc)}')"
+            id="locchk-${esc(loc)}">
+          <span class="loc-code">📍 ${esc(loc)}</span>
+          <span class="loc-count">${locItems.length}件</span>
+          ${selCount > 0 ? `<span class="loc-sel-count">✓ ${selCount}件選択</span>` : ''}
+          <span class="loc-toggle" id="grouptoggle-${esc(loc)}">▲</span>
+        </div>
+        <div id="grouptable-${esc(loc)}">
+          <table class="item-table">
+            <thead>
+              <tr>
+                <th style="width:36px;"></th>
+                <th>バーコード / 製品名</th>
+                <th>CCコード</th>
+                <th style="width:60px;text-align:center;">数量</th>
+                <th>入庫日</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${locItems.map(item => `
+                <tr class="${selectedIds.has(item.id) ? 'selected' : ''}" id="row-${item.id}">
+                  <td>
+                    <input type="checkbox" class="item-check"
+                      ${selectedIds.has(item.id) ? 'checked' : ''}
+                      onchange="toggleItem('${item.id}')">
+                  </td>
+                  <td>
+                    <div class="item-bc">${esc(item.barcode)}</div>
+                    ${item.productName ? `<div class="item-name">${esc(item.productName)}</div>` : ''}
+                  </td>
+                  <td><span class="item-cc">${esc(item.ccCode)}</span></td>
+                  <td class="item-qty">${item.qty || 1}</td>
+                  <td style="font-size:12px;color:var(--muted);">${item.receivedDate || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // indeterminate 状態を設定
+  locsSorted.forEach(loc => {
+    const cb = document.getElementById('locchk-' + loc);
+    if (cb) {
+      const locItems = groups[loc];
+      const selCount = locItems.filter(i => selectedIds.has(i.id)).length;
+      cb.indeterminate = selCount > 0 && selCount < locItems.length;
+    }
+  });
+}
+
+// ============================================================
+// SELECTION
+// ============================================================
+
+function toggleItem(id) {
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+  } else {
+    selectedIds.add(id);
+  }
+  renderStats();
+  renderItemGroups();
+  renderSidebar();
+  updateCreateBtn();
+}
+
+function toggleLocAll(loc) {
+  const locItems = allItems.filter(i => i.locationCCCode === loc);
+  const allSel = locItems.every(i => selectedIds.has(i.id));
+  if (allSel) {
+    locItems.forEach(i => selectedIds.delete(i.id));
+  } else {
+    locItems.forEach(i => selectedIds.add(i.id));
+  }
+  renderStats();
+  renderItemGroups();
+  renderSidebar();
+  updateCreateBtn();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  renderStats();
+  renderItemGroups();
+  renderSidebar();
+  updateCreateBtn();
+}
+
+function toggleGroup(loc) {
+  const table  = document.getElementById('grouptable-' + loc);
+  const toggle = document.getElementById('grouptoggle-' + loc);
+  if (!table) return;
+  const hidden = table.style.display === 'none';
+  table.style.display  = hidden ? '' : 'none';
+  toggle.textContent   = hidden ? '▲' : '▼';
+}
+
+function updateCreateBtn() {
+  const btn = document.getElementById('createListBtn');
+  btn.disabled = selectedIds.size === 0;
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+
+function renderSidebar() {
+  const body = document.getElementById('sidebarBody');
+  document.getElementById('sidebarSubTitle').textContent = selectedIds.size + '件選択中';
+
+  if (selectedIds.size === 0) {
+    body.innerHTML = `
+      <div class="sidebar-empty">
+        <div class="sidebar-empty-icon">🗒️</div>
+        <div class="sidebar-empty-text">在庫一覧からアイテムを<br>チェックして追加してください</div>
+      </div>`;
+    return;
+  }
+
+  const selectedItems = allItems.filter(i => selectedIds.has(i.id));
+  // ロケーション別ソート
+  selectedItems.sort((a, b) => (a.locationCCCode || '').localeCompare(b.locationCCCode || ''));
+
+  body.innerHTML = selectedItems.map(i => `
+    <div class="sel-item">
+      <button class="sel-item-remove" onclick="toggleItem('${i.id}')" title="選択を外す">✕</button>
+      <div class="sel-item-info">
+        <div class="sel-item-loc">📍 ${esc(i.locationCCCode || '?')}</div>
+        <div class="sel-item-bc">${esc(i.barcode)}</div>
+        ${i.productName ? `<div class="sel-item-name">${esc(i.productName)}</div>` : ''}
+        <div class="sel-item-cc">CC: ${esc(i.ccCode)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// CREATE PICKING LIST
+// ============================================================
+
+function createPickingList() {
+  if (selectedIds.size === 0) return;
+
+  const lists   = loadPickingLists();
+  const listNum = lists.length + 1;
+  const now     = new Date();
+  const nameInput = document.getElementById('listNameInput').value.trim();
+  const name    = nameInput || ('ピッキングリスト #' + String(listNum).padStart(3, '0'));
+
+  const selectedItems = allItems.filter(i => selectedIds.has(i.id));
+
+  const list = {
+    id:        'pl_' + genId(),
+    name:      name,
+    createdAt: formatDateTime(now),
+    status:    'open',
+    items:     selectedItems.map(i => ({
+      itemId:        i.id,
+      barcode:       i.barcode,
+      ccCode:        i.ccCode,
+      productName:   i.productName || null,
+      locationCCCode: i.locationCCCode,
+      qty:           i.qty || 1,
+      picked:        false,
+    })),
+  };
+
+  lists.push(list);
+  savePickingLists(lists);
+
+  // アイテムのステータスを picked_pending に（ピッキングリストに入った状態）
+  const items = loadItems();
+  selectedIds.forEach(id => {
+    const idx = items.findIndex(i => i.id === id);
+    if (idx >= 0) {
+      items[idx].pickingListId = list.id;
+    }
+  });
+  saveItems(items);
+
+  // トランザクション
+  const txs = JSON.parse(localStorage.getItem(KEY_TRANS) || '[]');
+  txs.push({
+    id: genId(), type: 'create_picking_list',
+    listId: list.id, listName: list.name,
+    itemCount: list.items.length,
+    at: formatDateTime(now)
+  });
+  localStorage.setItem(KEY_TRANS, JSON.stringify(txs));
+
+  toast(`「${name}」を作成しました（${list.items.length}件）`, 'success');
+
+  // リセット
+  selectedIds.clear();
+  document.getElementById('listNameInput').value = '';
+  loadAndRender();
+
+  // リストタブへ切り替え
+  setTimeout(() => switchTab('lists'), 600);
+}
+
+// ============================================================
+// PICKING LISTS RENDER
+// ============================================================
+
+function renderPickingLists() {
+  const lists = loadPickingLists();
+  const container = document.getElementById('plListContainer');
+
+  if (lists.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <h3>ピッキングリストがありません</h3>
+        <p>「在庫一覧」タブでアイテムを選択してリストを作成してください</p>
+      </div>`;
+    return;
+  }
+
+  const statusLabel = { open:'未着手', in_progress:'ピッキング中', done:'完了', cancelled:'キャンセル' };
+  const statusBadge = { open:'badge-cyan', in_progress:'badge-orange', done:'badge-green', cancelled:'badge-gray' };
+
+  container.innerHTML = [...lists].reverse().map(list => `
+    <div class="pl-card" id="plcard-${list.id}">
+      <div class="pl-card-header" onclick="togglePLCard('${list.id}')">
+        <div style="flex:1;">
+          <div class="pl-card-title">${esc(list.name)}</div>
+          <div class="pl-card-meta">
+            ${list.createdAt} ／ ${list.items.length}件
+            ／ ピック完了: ${list.items.filter(i=>i.picked).length}件
+          </div>
+        </div>
+        <span class="badge ${statusBadge[list.status] || 'badge-gray'}">${statusLabel[list.status] || list.status}</span>
+        <span style="color:var(--muted);font-size:12px;margin-left:8px;">▼</span>
+      </div>
+      <div class="pl-card-body">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">ロケーション</th>
+              <th style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">バーコード / 製品名</th>
+              <th style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">CCコード</th>
+              <th style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);">数量</th>
+              <th style="padding:8px 10px;font-size:11px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);">ピック</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.items.map(item => `
+              <tr style="${item.picked ? 'opacity:.5;' : ''}">
+                <td style="padding:8px 10px;font-size:12px;color:var(--location);font-weight:700;font-family:monospace;border-bottom:1px solid var(--border);">
+                  ${esc(item.locationCCCode || '?')}
+                </td>
+                <td style="padding:8px 10px;border-bottom:1px solid var(--border);">
+                  <div style="font-family:monospace;font-weight:700;font-size:13px;">${esc(item.barcode)}</div>
+                  ${item.productName ? `<div style="font-size:11px;color:var(--muted);">${esc(item.productName)}</div>` : ''}
+                </td>
+                <td style="padding:8px 10px;font-size:11px;color:var(--success);font-family:monospace;border-bottom:1px solid var(--border);">${esc(item.ccCode)}</td>
+                <td style="padding:8px 10px;text-align:center;font-weight:700;border-bottom:1px solid var(--border);">${item.qty}</td>
+                <td style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">
+                  ${item.picked ? '✅' : '⬜'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- CC Codes for 03_picking.html -->
+        <div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;">
+          <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:6px;">
+            📱 iPhoneピッキング用 CCコードリスト（searchCodes）
+          </div>
+          <div style="font-family:monospace;font-size:12px;color:#065f46;word-break:break-all;line-height:1.8;">
+            ${list.items.map(i => esc(i.ccCode)).join(', ')}
+          </div>
+        </div>
+
+        <div class="pl-actions">
+          <select class="status-select" onchange="updateListStatus('${list.id}', this.value)">
+            <option value="open"        ${list.status==='open'        ?'selected':''}>未着手</option>
+            <option value="in_progress" ${list.status==='in_progress' ?'selected':''}>ピッキング中</option>
+            <option value="done"        ${list.status==='done'        ?'selected':''}>完了</option>
+            <option value="cancelled"   ${list.status==='cancelled'   ?'selected':''}>キャンセル</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="printList('${list.id}')">🖨 印刷</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteList('${list.id}', '${esc(list.name)}')">🗑 削除</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function togglePLCard(id) {
+  const card = document.getElementById('plcard-' + id);
+  if (card) card.classList.toggle('open');
+}
+
+function updateListStatus(id, status) {
+  const lists = loadPickingLists();
+  const idx = lists.findIndex(l => l.id === id);
+  if (idx >= 0) {
+    lists[idx].status = status;
+    savePickingLists(lists);
+    renderPickingLists();
+    toast('ステータスを更新しました', 'success');
+  }
+}
+
+function confirmDeleteList(id, name) {
+  document.getElementById('confirmTitle').textContent = 'ピッキングリストを削除';
+  document.getElementById('confirmBody').innerHTML = `「<strong>${esc(name)}</strong>」を削除しますか？<br><small style="color:var(--muted);">削除してもアイテムの在庫データは保持されます。</small>`;
+  const okBtn = document.getElementById('confirmOkBtn');
+  okBtn.onclick = () => { deleteList(id); closeModal(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function deleteList(id) {
+  const lists = loadPickingLists().filter(l => l.id !== id);
+  savePickingLists(lists);
+  // アイテムのpickingListIdをクリア
+  const items = loadItems().map(i => {
+    if (i.pickingListId === id) { const c = {...i}; delete c.pickingListId; return c; }
+    return i;
+  });
+  saveItems(items);
+  loadAndRender();
+  toast('削除しました', 'warning');
+}
+
+function printList(id) {
+  const lists = loadPickingLists();
+  const list = lists.find(l => l.id === id);
+  if (!list) return;
+  const w = window.open('', '_blank');
+  const rows = list.items.sort((a,b)=>(a.locationCCCode||'').localeCompare(b.locationCCCode||''))
+    .map(i => `<tr><td>${esc(i.locationCCCode||'')}</td><td>${esc(i.barcode)}</td><td>${esc(i.productName||'')}</td><td>${esc(i.ccCode)}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:center;">□</td></tr>`).join('');
+  w.document.write(`<html><head><title>${esc(list.name)}</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;font-size:13px;}th{background:#f5f5f5;}</style></head><body><h2>${esc(list.name)}</h2><p>作成日時: ${list.createdAt} ／ 件数: ${list.items.length}件</p><br><table><tr><th>ロケーション</th><th>バーコード</th><th>製品名</th><th>CCコード</th><th>数量</th><th>チェック</th></tr>${rows}</table></body></html>`);
+  w.print();
+}
+
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+}
+document.getElementById('confirmModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('confirmModal')) closeModal();
+});
+
+// ============================================================
+// DATA ACCESS
+// ============================================================
+
+function loadItems() {
+  try { return JSON.parse(localStorage.getItem(KEY_ITEMS) || '[]'); }
+  catch { return []; }
+}
+
+function saveItems(items) {
+  localStorage.setItem(KEY_ITEMS, JSON.stringify(items));
+}
+
+function loadPickingLists() {
+  try { return JSON.parse(localStorage.getItem(KEY_PICK_LST) || '[]'); }
+  catch { return []; }
+}
+
+function savePickingLists(lists) {
+  localStorage.setItem(KEY_PICK_LST, JSON.stringify(lists));
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+
+function toast(msg, type = 'success') {
+  const icons = { success: '✓', error: '✕', warning: '⚠' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'i'}</span> ${msg}`;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2700);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+}
+
+function formatDateTime(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate()) +
+    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

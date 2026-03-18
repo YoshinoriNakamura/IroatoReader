@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>入庫処理</title>
+<style>
+  :root {
+    --primary:   #1a56db;
+    --success:   #057a55;
+    --danger:    #c81e1e;
+    --warning:   #b45309;
+    --bg:        #f9fafb;
+    --surface:   #ffffff;
+    --border:    #e5e7eb;
+    --text:      #111827;
+    --muted:     #6b7280;
+    --step-done: #057a55;
+    --step-cur:  #1a56db;
+    --step-wait: #d1d5db;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', sans-serif;
+    font-size: 16px; color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--primary);
+    color: #fff;
+    padding: 12px 16px 10px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; font-weight: 700; letter-spacing: .3px; }
+  .header-sub { font-size: 12px; opacity: .75; margin-top: 2px; }
+
+  .settings-btn {
+    background: rgba(255,255,255,.15);
+    border: none; border-radius: 8px;
+    color: #fff; padding: 7px 10px; font-size: 18px;
+    cursor: pointer;
+  }
+  .back-btn {
+    background: rgba(255,255,255,.2);
+    border: none; border-radius: 8px;
+    color: #fff; padding: 7px 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer; white-space: nowrap;
+  }
+
+  /* ── STEP BAR ── */
+  .step-bar {
+    display: flex; align-items: center;
+    padding: 14px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 0;
+  }
+  .step {
+    display: flex; flex-direction: column; align-items: center; flex: 1;
+  }
+  .step-circle {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+    background: var(--step-wait); color: #fff;
+    transition: background .3s;
+  }
+  .step.done .step-circle  { background: var(--step-done); }
+  .step.cur  .step-circle  { background: var(--step-cur); box-shadow: 0 0 0 3px rgba(26,86,219,.25); }
+  .step-label { font-size: 10px; color: var(--muted); margin-top: 4px; text-align: center; white-space: nowrap; }
+  .step.cur .step-label  { color: var(--primary); font-weight: 600; }
+  .step.done .step-label { color: var(--success); }
+  .step-line { flex: 1; height: 2px; background: var(--step-wait); margin-bottom: 14px; max-width: 40px; }
+  .step-line.done { background: var(--step-done); }
+
+  /* ── MAIN CONTENT ── */
+  .content { padding: 16px; max-width: 480px; margin: 0 auto; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    margin-bottom: 12px;
+  }
+
+  /* ── VALUE DISPLAY ── */
+  .value-box {
+    background: #f3f4f6;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-height: 54px;
+    display: flex; align-items: center;
+    font-size: 22px; font-weight: 700;
+    color: var(--text);
+    letter-spacing: .5px;
+    word-break: break-all;
+  }
+  .value-box.has-value { border-color: var(--step-done); background: #f0fdf4; color: var(--step-done); }
+  .value-box.placeholder { color: var(--muted); font-size: 14px; font-weight: 400; }
+  .value-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  /* ── SCAN BUTTON ── */
+  .scan-btn {
+    width: 100%; padding: 18px;
+    border: none; border-radius: 12px;
+    font-size: 17px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: transform .1s, opacity .2s;
+    margin-top: 12px;
+    -webkit-user-select: none;
+  }
+  .scan-btn:active { transform: scale(.97); }
+  .scan-btn.primary { background: var(--primary); color: #fff; }
+  .scan-btn.success { background: var(--success); color: #fff; }
+  .scan-btn.disabled { background: #9ca3af; color: #fff; pointer-events: none; }
+
+  .scan-btn .icon { font-size: 22px; }
+
+  /* ── SUB BUTTON ── */
+  .sub-btn {
+    width: 100%; padding: 13px;
+    border: 2px solid var(--border); border-radius: 10px;
+    background: transparent; font-size: 15px; font-weight: 600;
+    color: var(--muted); cursor: pointer;
+    margin-top: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .sub-btn:active { background: #f3f4f6; }
+
+  /* ── CONFIRM SUMMARY ── */
+  .summary-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 0;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { width: 110px; font-size: 13px; color: var(--muted); flex-shrink: 0; }
+  .summary-value { font-size: 14px; font-weight: 600; word-break: break-all; }
+  .summary-value.big { font-size: 18px; color: var(--primary); }
+
+  /* ── FORM INPUT ── */
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 13px; color: var(--muted); margin-bottom: 4px; display: block; }
+  .form-input {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 16px; background: var(--surface); color: var(--text);
+    -webkit-appearance: none;
+  }
+  .form-input:focus { outline: none; border-color: var(--primary); }
+
+  /* ── STATUS BADGE ── */
+  .badge {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-gray   { background: #f3f4f6; color: #374151; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+
+  /* ── HISTORY ── */
+  .history-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface); border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .history-header h3 { font-size: 14px; font-weight: 600; }
+  .history-toggle { font-size: 12px; color: var(--primary); }
+  .history-list { display: none; }
+  .history-list.open { display: block; }
+  .history-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .h-codes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .h-bc { font-family: monospace; font-size: 14px; font-weight: 700; }
+  .h-arrow { color: var(--muted); font-size: 16px; }
+  .h-cc { font-size: 13px; color: var(--primary); font-weight: 600; }
+  .h-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 200; width: calc(100% - 32px); max-width: 440px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #111827; color: #fff;
+    padding: 13px 18px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    animation: toastIn .3s ease;
+    pointer-events: all;
+  }
+  .toast.success { border-left: 4px solid #34d399; }
+  .toast.error   { border-left: 4px solid #f87171; }
+  .toast.warning { border-left: 4px solid #fbbf24; }
+  @keyframes toastIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.5); z-index: 100;
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-sheet {
+    background: var(--surface); width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px 40px;
+    transform: translateY(100%); transition: transform .3s ease;
+  }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-handle {
+    width: 40px; height: 4px; background: #d1d5db;
+    border-radius: 2px; margin: 0 auto 18px;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+
+  /* ── SETTINGS ── */
+  .settings-section { margin-bottom: 20px; }
+  .settings-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .settings-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .settings-item-label { font-size: 15px; font-weight: 500; }
+  .settings-item-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .file-label {
+    display: inline-block;
+    padding: 10px 16px; border-radius: 8px;
+    background: var(--primary); color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #csvFileInput { display: none; }
+
+  .danger-btn {
+    width: 100%; padding: 12px;
+    background: #fee2e2; color: var(--danger);
+    border: 1px solid #fca5a5; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    margin-top: 8px;
+  }
+
+  /* ── COUNT BANNER ── */
+  .count-banner {
+    background: var(--primary);
+    color: #fff; text-align: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    position: sticky; top: 56px; z-index: 40;
+  }
+  .count-banner strong { font-size: 18px; margin: 0 4px; }
+
+  /* ── EMPTY ── */
+  .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
+  .empty-icon { font-size: 40px; margin-bottom: 8px; }
+
+  /* ── MASTER STATUS ── */
+  .master-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--muted);
+  }
+  .master-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #9ca3af; flex-shrink: 0;
+  }
+  .master-status.loaded .dot { background: var(--success); }
+
+  /* Util */
+  .mt8  { margin-top: 8px; }
+  .mt12 { margin-top: 12px; }
+  .gap8 { gap: 8px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-row">
+    <a href="index.html" class="back-btn">← 戻る</a>
+    <h1>📦 入庫処理</h1>
+    <button class="settings-btn" onclick="openSettings()">⚙️</button>
+  </div>
+</div>
+
+<!-- MASTER STATUS -->
+<div class="master-status" id="masterStatus">
+  <div class="dot"></div>
+  <span id="masterStatusText">製品マスタ: 未読込（バーコードのみで進められます）</span>
+</div>
+
+<!-- COUNT BANNER -->
+<div class="count-banner">
+  本日の入庫: <strong id="todayCount">0</strong> 件
+</div>
+
+<!-- STEP BAR -->
+<div class="step-bar">
+  <div class="step cur" id="step1">
+    <div class="step-circle" id="step1-circle">1</div>
+    <div class="step-label">バーコード</div>
+  </div>
+  <div class="step-line" id="line1"></div>
+  <div class="step" id="step2">
+    <div class="step-circle" id="step2-circle">2</div>
+    <div class="step-label">CCコード</div>
+  </div>
+  <div class="step-line" id="line2"></div>
+  <div class="step" id="step3">
+    <div class="step-circle" id="step3-circle">3</div>
+    <div class="step-label">確認・登録</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content" id="mainContent">
+
+  <!-- ===== STEP 1: BARCODE ===== -->
+  <div id="view-step1">
+    <div class="card">
+      <div class="card-title">STEP 1 — 現品票バーコード読み取り</div>
+      <div class="value-box placeholder" id="barcodeDisplay">
+        バーコード未スキャン
+      </div>
+      <div class="value-sub" id="productNameDisplay"></div>
+
+      <button class="scan-btn primary" id="btnScanBarcode" onclick="scanBarcode()">
+        <span class="icon">〓</span> バーコードをスキャン
+      </button>
+
+      <!-- Manual input fallback -->
+      <button class="sub-btn" onclick="toggleManualBarcode()">
+        ✏️ 手動入力
+      </button>
+      <div id="manualBarcodeArea" style="display:none;margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">バーコード（製品コード）</label>
+          <input type="text" class="form-input" id="manualBarcodeInput"
+            placeholder="製品コードを入力" inputmode="text"
+            onkeydown="if(event.key==='Enter')confirmManualBarcode()">
+        </div>
+        <button class="scan-btn success" onclick="confirmManualBarcode()">✓ 確定</button>
+      </div>
+    </div>
+
+    <div class="card" style="display:none;" id="step1NextCard">
+      <button class="scan-btn success" onclick="goToStep2()">
+        次へ → CCコードスキャン
+      </button>
+      <button class="sub-btn" onclick="resetBarcode()">🔄 バーコードをやり直す</button>
+    </div>
+  </div>
+
+  <!-- ===== STEP 2: CC CODE ===== -->
+  <div id="view-step2" style="display:none;">
+    <div class="card">
+      <div class="card-title">STEP 1 完了 — 読み取りバーコード</div>
+      <div class="value-box has-value" id="barcodeConfirm"></div>
+      <div class="value-sub" id="productNameConfirm"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">STEP 2 — カメレオンコード読み取り</div>
+      <div class="value-box placeholder" id="ccDisplay">
+        カメレオンコード未スキャン
+      </div>
+
+      <button class="scan-btn primary" id="btnScanCC" onclick="scanCC()">
+        <span class="icon">🔵</span> カメレオンコードをスキャン
+      </button>
+
+      <!-- Manual input fallback -->
+      <button class="sub-btn" onclick="toggleManualCC()">
+        ✏️ 手動入力
+      </button>
+      <div id="manualCCArea" style="display:none;margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">カメレオンコード値</label>
+          <input type="text" class="form-input" id="manualCCInput"
+            placeholder="CCコードを入力" inputmode="text"
+            onkeydown="if(event.key==='Enter')confirmManualCC()">
+        </div>
+        <button class="scan-btn success" onclick="confirmManualCC()">✓ 確定</button>
+      </div>
+    </div>
+
+    <div class="card" style="display:none;" id="step2NextCard">
+      <button class="scan-btn success" onclick="goToStep3()">
+        次へ → 確認・登録
+      </button>
+      <button class="sub-btn" onclick="resetCC()">🔄 CCコードをやり直す</button>
+    </div>
+
+    <button class="sub-btn" style="margin-top:0;" onclick="backToStep1()">← バーコードからやり直す</button>
+  </div>
+
+  <!-- ===== STEP 3: CONFIRM ===== -->
+  <div id="view-step3" style="display:none;">
+    <div class="card">
+      <div class="card-title">登録内容の確認</div>
+
+      <div class="summary-row">
+        <div class="summary-label">バーコード<br><span style="font-size:10px;">(製品コード)</span></div>
+        <div class="summary-value big" id="confirmBarcode"></div>
+      </div>
+      <div class="summary-row" id="confirmProductNameRow" style="display:none;">
+        <div class="summary-label">製品名</div>
+        <div class="summary-value" id="confirmProductName"></div>
+      </div>
+      <div class="summary-row">
+        <div class="summary-label">CCコード</div>
+        <div class="summary-value" id="confirmCC"></div>
+      </div>
+
+      <div style="height:12px;"></div>
+
+      <div class="form-group">
+        <label class="form-label">数量（個数）</label>
+        <input type="number" class="form-input" id="inputQty"
+          value="1" min="1" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ロット番号（任意）</label>
+        <input type="text" class="form-input" id="inputLot"
+          placeholder="例: LOT-240101">
+      </div>
+      <div class="form-group">
+        <label class="form-label">備考（任意）</label>
+        <input type="text" class="form-input" id="inputNote" placeholder="メモ">
+      </div>
+    </div>
+
+    <div class="card" style="background:#f0fdf4;border-color:#a7f3d0;">
+      <button class="scan-btn success" style="margin-top:0;" onclick="registerItem()">
+        ✓ 入庫登録する
+      </button>
+      <button class="sub-btn" onclick="backToStep1()">↩ 最初からやり直す</button>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- HISTORY SECTION -->
+<div class="history-header" onclick="toggleHistory()">
+  <h3>📋 本日の入庫一覧</h3>
+  <span class="history-toggle" id="historyToggleLabel">表示する ▼</span>
+</div>
+<div class="history-list" id="historyList"></div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ 設定</div>
+
+    <div class="settings-section">
+      <div class="settings-label">製品マスタ（CSV）</div>
+      <div class="settings-item">
+        <div>
+          <div class="settings-item-label">CSVファイル読込</div>
+          <div class="settings-item-sub">製品コード,製品名（ヘッダー行あり）</div>
+        </div>
+        <label class="file-label">
+          📁 選択
+          <input type="file" id="csvFileInput" accept=".csv,text/csv" onchange="loadCSV(this)">
+        </label>
+      </div>
+      <div class="settings-item" id="masterCountRow" style="display:none;">
+        <div class="settings-item-label">読込済み製品数</div>
+        <div id="masterCountVal"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">CSVフォーマット仕様</div>
+      <div style="background:#f3f4f6;border-radius:8px;padding:12px;font-size:12px;font-family:monospace;color:#374151;line-height:1.8;">
+        1行目: ヘッダー（スキップ）<br>
+        A列: 製品コード（バーコード値）<br>
+        B列: 製品名<br>
+        C列以降: 無視
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">データ管理</div>
+      <button class="danger-btn" onclick="clearTodayHistory()">🗑 本日の入庫データを削除</button>
+      <button class="danger-btn" onclick="clearAllData()" style="margin-top:8px;">⚠️ 全データを削除（リセット）</button>
+    </div>
+
+    <button class="scan-btn primary" style="margin-top:16px;" onclick="closeSettings()">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STORAGE KEYS (全アプリ共通)
+// ============================================================
+const KEY_ITEMS      = 'wms_items';          // 入庫済みアイテム（バーコード↔CCコード）
+const KEY_MASTER     = 'wms_product_master'; // 製品マスタ（CSV由来）
+const KEY_TRANS      = 'wms_transactions';   // トランザクションログ
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  step:        1,
+  barcode:     null,   // スキャン済みバーコード値
+  ccCode:      null,   // スキャン済みCCコード値
+  productName: null,   // マスタから引いた製品名
+};
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  updateTodayCount();
+  renderHistory();
+  checkMasterStatus();
+});
+
+// ============================================================
+// STEP NAVIGATION
+// ============================================================
+
+function goToStep2() {
+  if (!state.barcode) { toast('バーコードをスキャンしてください', 'error'); return; }
+  state.step = 2;
+  updateStepBar();
+  document.getElementById('view-step1').style.display = 'none';
+  document.getElementById('view-step2').style.display = 'block';
+  document.getElementById('barcodeConfirm').textContent = state.barcode;
+  const pnc = document.getElementById('productNameConfirm');
+  pnc.textContent = state.productName ? '製品名: ' + state.productName : '';
+  // Reset CC
+  state.ccCode = null;
+  document.getElementById('ccDisplay').textContent = 'カメレオンコード未スキャン';
+  document.getElementById('ccDisplay').className = 'value-box placeholder';
+  document.getElementById('step2NextCard').style.display = 'none';
+  scrollTop();
+
+  // バーコードスキャン完了後、自動的にCCスキャンを起動
+  setTimeout(function() { scanCC(); }, 350);
+}
+
+function goToStep3() {
+  if (!state.ccCode) { toast('カメレオンコードをスキャンしてください', 'error'); return; }
+  // Check duplicate CC
+  const items = loadItems();
+  const dup = items.find(i => i.ccCode === state.ccCode && i.status !== 'shipped');
+  if (dup) {
+    toast('このCCコードはすでに登録されています（' + dup.barcode + '）', 'error');
+    return;
+  }
+  state.step = 3;
+  updateStepBar();
+  document.getElementById('view-step2').style.display = 'none';
+  document.getElementById('view-step3').style.display = 'block';
+  document.getElementById('confirmBarcode').textContent = state.barcode;
+  document.getElementById('confirmCC').textContent = state.ccCode;
+  if (state.productName) {
+    document.getElementById('confirmProductName').textContent = state.productName;
+    document.getElementById('confirmProductNameRow').style.display = 'flex';
+  } else {
+    document.getElementById('confirmProductNameRow').style.display = 'none';
+  }
+  document.getElementById('inputQty').value = '1';
+  document.getElementById('inputLot').value = '';
+  document.getElementById('inputNote').value = '';
+  scrollTop();
+}
+
+function backToStep1() {
+  resetAll();
+}
+
+// ============================================================
+// BARCODE SCAN
+// ============================================================
+
+function scanBarcode() {
+  try {
+    var reader = new IroatoReader('barcode', {
+      mode:      IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor: IroatoReader.green,
+      lineWidth: 10,
+      labelText: '現品票のバーコードをスキャンしてください'
+    });
+    reader.read(function(res) {
+      var code = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (code) {
+        handleBarcodeResult(code);
+      } else {
+        toast('バーコードを読み取れませんでした', 'error');
+      }
+    });
+  } catch (e) {
+    // IroatoReader未対応環境（デスクトップ確認用）
+    toast('IroatoReader環境外です。手動入力をご使用ください', 'warning');
+    toggleManualBarcode();
+  }
+}
+
+function handleBarcodeResult(code) {
+  state.barcode = code.trim();
+  state.productName = lookupProductName(state.barcode);
+  const display = document.getElementById('barcodeDisplay');
+  display.textContent = state.barcode;
+  display.className = 'value-box has-value';
+  const pnd = document.getElementById('productNameDisplay');
+  pnd.textContent = state.productName ? '📋 ' + state.productName : '（製品マスタ未登録）';
+  goToStep2();
+}
+
+function toggleManualBarcode() {
+  const area = document.getElementById('manualBarcodeArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+  if (area.style.display === 'block') {
+    setTimeout(() => document.getElementById('manualBarcodeInput').focus(), 100);
+  }
+}
+
+function confirmManualBarcode() {
+  const val = document.getElementById('manualBarcodeInput').value.trim();
+  if (!val) { toast('バーコード値を入力してください', 'error'); return; }
+  document.getElementById('manualBarcodeArea').style.display = 'none';
+  document.getElementById('manualBarcodeInput').value = '';
+  handleBarcodeResult(val);
+}
+
+function resetBarcode() {
+  state.barcode = null;
+  state.productName = null;
+  const display = document.getElementById('barcodeDisplay');
+  display.textContent = 'バーコード未スキャン';
+  display.className = 'value-box placeholder';
+  document.getElementById('productNameDisplay').textContent = '';
+  document.getElementById('step1NextCard').style.display = 'none';
+}
+
+// ============================================================
+// CC CODE SCAN
+// ============================================================
+
+function scanCC() {
+  try {
+    var reader = new IroatoReader('cc', {
+      mode:      IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor: IroatoReader.green,
+      lineWidth: 10,
+      errLineColor: IroatoReader.red,
+      labelText: '製品に貼られたカメレオンコードをスキャン',
+    });
+    reader.read(function(res) {
+      var code = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (code) {
+        handleCCResult(code);
+      } else {
+        toast('カメレオンコードを読み取れませんでした', 'error');
+      }
+    });
+  } catch (e) {
+    toast('IroatoReader環境外です。手動入力をご使用ください', 'warning');
+    toggleManualCC();
+  }
+}
+
+function handleCCResult(code) {
+  state.ccCode = code.trim();
+  const display = document.getElementById('ccDisplay');
+  display.textContent = state.ccCode;
+  display.className = 'value-box has-value';
+  goToStep3();
+}
+
+function toggleManualCC() {
+  const area = document.getElementById('manualCCArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+  if (area.style.display === 'block') {
+    setTimeout(() => document.getElementById('manualCCInput').focus(), 100);
+  }
+}
+
+function confirmManualCC() {
+  const val = document.getElementById('manualCCInput').value.trim();
+  if (!val) { toast('CCコード値を入力してください', 'error'); return; }
+  document.getElementById('manualCCArea').style.display = 'none';
+  document.getElementById('manualCCInput').value = '';
+  handleCCResult(val);
+}
+
+function resetCC() {
+  state.ccCode = null;
+  const display = document.getElementById('ccDisplay');
+  display.textContent = 'カメレオンコード未スキャン';
+  display.className = 'value-box placeholder';
+  document.getElementById('step2NextCard').style.display = 'none';
+}
+
+// ============================================================
+// REGISTER
+// ============================================================
+
+function registerItem() {
+  if (!state.barcode || !state.ccCode) {
+    toast('バーコードとCCコードが必要です', 'error'); return;
+  }
+
+  const qty  = parseInt(document.getElementById('inputQty').value) || 1;
+  const lot  = document.getElementById('inputLot').value.trim();
+  const note = document.getElementById('inputNote').value.trim();
+  const now  = new Date();
+
+  const item = {
+    id:          genId(),
+    barcode:     state.barcode,
+    ccCode:      state.ccCode,
+    productName: state.productName || state.barcode,
+    qty:         qty,
+    lot:         lot,
+    note:        note,
+    status:      'received',   // received → located → picked → shipped
+    receivedAt:  formatDateTime(now),
+    receivedDate: formatDate(now),
+    locationCCCode: null,      // ロケーション登録で設定
+    shippedAt:   null,
+  };
+
+  // Save
+  const items = loadItems();
+  items.push(item);
+  saveItems(items);
+
+  // Transaction log
+  const txs = JSON.parse(localStorage.getItem(KEY_TRANS) || '[]');
+  txs.push({
+    id: genId(), type: 'receive',
+    itemId: item.id, barcode: item.barcode, ccCode: item.ccCode,
+    productName: item.productName, qty: item.qty,
+    at: formatDateTime(now)
+  });
+  localStorage.setItem(KEY_TRANS, JSON.stringify(txs));
+
+  toast('✓ 入庫登録完了！', 'success');
+  updateTodayCount();
+  renderHistory();
+  resetAll();
+}
+
+// ============================================================
+// RESET
+// ============================================================
+
+function resetAll() {
+  state = { step: 1, barcode: null, ccCode: null, productName: null };
+  updateStepBar();
+
+  // Show step1, hide others
+  document.getElementById('view-step1').style.display = 'block';
+  document.getElementById('view-step2').style.display = 'none';
+  document.getElementById('view-step3').style.display = 'none';
+
+  // Reset step1 displays
+  const bd = document.getElementById('barcodeDisplay');
+  bd.textContent = 'バーコード未スキャン';
+  bd.className = 'value-box placeholder';
+  document.getElementById('productNameDisplay').textContent = '';
+  document.getElementById('step1NextCard').style.display = 'none';
+  document.getElementById('manualBarcodeArea').style.display = 'none';
+  document.getElementById('manualBarcodeInput').value = '';
+
+  scrollTop();
+}
+
+// ============================================================
+// STEP BAR UI
+// ============================================================
+
+function updateStepBar() {
+  const steps = [1,2,3];
+  steps.forEach(n => {
+    const el = document.getElementById('step' + n);
+    el.className = 'step ' + (n < state.step ? 'done' : n === state.step ? 'cur' : '');
+  });
+  [1,2].forEach(n => {
+    const line = document.getElementById('line' + n);
+    line.className = 'step-line ' + (n < state.step ? 'done' : '');
+  });
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+
+let historyOpen = false;
+
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  document.getElementById('historyList').className = 'history-list' + (historyOpen ? ' open' : '');
+  document.getElementById('historyToggleLabel').textContent = historyOpen ? '非表示 ▲' : '表示する ▼';
+}
+
+function renderHistory() {
+  const today  = formatDate(new Date());
+  const items  = loadItems().filter(i => i.receivedDate === today).reverse();
+  const list   = document.getElementById('historyList');
+
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>本日の入庫はありません</div></div>';
+    return;
+  }
+
+  list.innerHTML = items.map(i => `
+    <div class="history-item">
+      <div class="h-codes">
+        <span class="h-bc">${esc(i.barcode)}</span>
+        <span class="h-arrow">→</span>
+        <span class="h-cc">CC: ${esc(i.ccCode)}</span>
+        ${i.qty > 1 ? `<span class="badge badge-blue">×${i.qty}</span>` : ''}
+        <span class="badge ${statusBadge(i.status)}">${statusLabel(i.status)}</span>
+      </div>
+      ${i.productName ? `<div class="h-meta">📋 ${esc(i.productName)}</div>` : ''}
+      ${i.lot ? `<div class="h-meta">ロット: ${esc(i.lot)}</div>` : ''}
+      <div class="h-meta">${i.receivedAt}</div>
+    </div>
+  `).join('');
+}
+
+function updateTodayCount() {
+  const today = formatDate(new Date());
+  const count = loadItems().filter(i => i.receivedDate === today).length;
+  document.getElementById('todayCount').textContent = count;
+}
+
+// ============================================================
+// PRODUCT MASTER (CSV)
+// ============================================================
+
+function loadCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    const master = {};
+    let count = 0;
+    // Skip header row (line 0)
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      if (cols.length >= 2 && cols[0].trim()) {
+        master[cols[0].trim()] = cols[1].trim();
+        count++;
+      }
+    }
+    localStorage.setItem(KEY_MASTER, JSON.stringify(master));
+    checkMasterStatus();
+    toast(`製品マスタを読込みました（${count}件）`, 'success');
+    document.getElementById('masterCountRow').style.display = 'flex';
+    document.getElementById('masterCountVal').textContent = count + '件';
+    input.value = '';
+  };
+  reader.readAsText(file, 'Shift_JIS');
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      inQuotes = !inQuotes;
+    } else if (line[i] === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += line[i];
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function lookupProductName(barcode) {
+  try {
+    const master = JSON.parse(localStorage.getItem(KEY_MASTER) || '{}');
+    return master[barcode] || null;
+  } catch { return null; }
+}
+
+function checkMasterStatus() {
+  try {
+    const master = JSON.parse(localStorage.getItem(KEY_MASTER) || '{}');
+    const count  = Object.keys(master).length;
+    const el     = document.getElementById('masterStatus');
+    const txt    = document.getElementById('masterStatusText');
+    if (count > 0) {
+      el.className = 'master-status loaded';
+      txt.textContent = `製品マスタ: 読込済み（${count}件）`;
+      document.getElementById('masterCountRow').style.display = 'flex';
+      document.getElementById('masterCountVal').textContent = count + '件';
+    } else {
+      el.className = 'master-status';
+      txt.textContent = '製品マスタ: 未読込（バーコードのみで進められます）';
+    }
+  } catch {}
+}
+
+// ============================================================
+// SETTINGS MODAL
+// ============================================================
+
+function openSettings()  { document.getElementById('settingsModal').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+function clearTodayHistory() {
+  if (!confirm('本日の入庫データを削除しますか？')) return;
+  const today = formatDate(new Date());
+  const items = loadItems().filter(i => i.receivedDate !== today);
+  saveItems(items);
+  updateTodayCount();
+  renderHistory();
+  toast('本日のデータを削除しました', 'warning');
+}
+
+function clearAllData() {
+  if (!confirm('全データを削除します。よろしいですか？')) return;
+  localStorage.removeItem(KEY_ITEMS);
+  localStorage.removeItem(KEY_TRANS);
+  updateTodayCount();
+  renderHistory();
+  toast('全データを削除しました', 'warning');
+  closeSettings();
+}
+
+// ============================================================
+// DATA ACCESS
+// ============================================================
+
+function loadItems() {
+  try { return JSON.parse(localStorage.getItem(KEY_ITEMS) || '[]'); }
+  catch { return []; }
+}
+
+function saveItems(items) {
+  localStorage.setItem(KEY_ITEMS, JSON.stringify(items));
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+
+function toast(msg, type = 'success') {
+  const icons = { success: '✓', error: '✕', warning: '⚠' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'i'}</span> ${msg}`;
+  const wrap = document.getElementById('toastWrap');
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2700);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+}
+
+function formatDate(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate());
+}
+
+function formatDateTime(d) {
+  return formatDate(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scrollTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function statusLabel(s) {
+  const m = { received:'入庫済', located:'ロケ登録済', picked:'ピッキング済', shipped:'出荷済' };
+  return m[s] || s;
+}
+function statusBadge(s) {
+  const m = { received:'badge-blue', located:'badge-green', picked:'badge-gray', shipped:'badge-gray' };
+  return m[s] || 'badge-gray';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IroatoWMS — ホーム</title>
+<script src="auth.js?v=3"></script>
+<style>
+  :root {
+    --bg:       #f1f5f9;
+    --surface:  #ffffff;
+    --border:   #e2e8f0;
+    --text:     #0f172a;
+    --muted:    #64748b;
+
+    --c-nyuko:    #1a56db;
+    --c-location: #6d28d9;
+    --c-picking:  #0891b2;
+    --c-shipping: #b45309;
+    --c-pc:       #374151;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    min-height: 100%; background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', sans-serif;
+    font-size: 16px; color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1a56db 100%);
+    color: #fff;
+    padding: 20px 20px 24px;
+  }
+  .header-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .app-name {
+    font-size: 22px; font-weight: 800; letter-spacing: -.5px;
+  }
+  .app-sub {
+    font-size: 12px; opacity: .7; margin-top: 2px;
+  }
+  .header-date {
+    font-size: 12px; opacity: .75; text-align: right;
+    line-height: 1.6; white-space: nowrap;
+  }
+
+  /* ── STATUS SUMMARY ── */
+  .status-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .stat-chip {
+    background: rgba(255,255,255,.15);
+    border-radius: 10px;
+    padding: 8px 6px; text-align: center;
+  }
+  .stat-chip-val {
+    font-size: 22px; font-weight: 800; line-height: 1;
+  }
+  .stat-chip-lbl {
+    font-size: 10px; opacity: .8; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* ── CONTENT ── */
+  .content { padding: 20px 16px 32px; max-width: 480px; margin: 0 auto; }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .8px;
+    color: var(--muted); text-transform: uppercase;
+    margin: 0 0 10px 4px;
+  }
+
+  /* ── FLOW ARROW ── */
+  .flow-arrow {
+    text-align: center; color: var(--muted);
+    font-size: 20px; margin: 2px 0; line-height: 1;
+  }
+
+  /* ── MENU CARD ── */
+  .menu-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 18px;
+    margin-bottom: 0;
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer;
+    text-decoration: none; color: inherit;
+    transition: transform .12s, box-shadow .12s, border-color .15s;
+    -webkit-user-select: none;
+    position: relative; overflow: hidden;
+  }
+  .menu-card:active {
+    transform: scale(.97);
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+  .menu-card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 5px;
+    border-radius: 16px 0 0 16px;
+  }
+
+  .menu-card.nyuko    { border-color: rgba(26,86,219,.25); }
+  .menu-card.nyuko::before    { background: var(--c-nyuko); }
+  .menu-card.location { border-color: rgba(109,40,217,.25); }
+  .menu-card.location::before { background: var(--c-location); }
+  .menu-card.picking  { border-color: rgba(8,145,178,.25); }
+  .menu-card.picking::before  { background: var(--c-picking); }
+  .menu-card.shipping { border-color: rgba(180,83,9,.25); }
+  .menu-card.shipping::before { background: var(--c-shipping); }
+
+  .menu-card.disabled {
+    opacity: .45; pointer-events: none;
+  }
+
+  /* icon circle */
+  .menu-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; flex-shrink: 0;
+  }
+  .nyuko    .menu-icon { background: rgba(26,86,219,.1);  }
+  .location .menu-icon { background: rgba(109,40,217,.1); }
+  .picking  .menu-icon { background: rgba(8,145,178,.1);  }
+  .shipping .menu-icon { background: rgba(180,83,9,.1);   }
+
+  /* text block */
+  .menu-text { flex: 1; min-width: 0; }
+  .menu-step {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; margin-bottom: 3px;
+  }
+  .nyuko    .menu-step { color: var(--c-nyuko); }
+  .location .menu-step { color: var(--c-location); }
+  .picking  .menu-step { color: var(--c-picking); }
+  .shipping .menu-step { color: var(--c-shipping); }
+
+  .menu-title {
+    font-size: 17px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .menu-desc {
+    font-size: 12px; color: var(--muted); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* badge */
+  .menu-badge-wrap {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+    flex-shrink: 0;
+  }
+  .menu-badge {
+    min-width: 36px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 13px; font-weight: 800; text-align: center;
+  }
+  .badge-nyuko    { background: rgba(26,86,219,.12);  color: var(--c-nyuko); }
+  .badge-location { background: rgba(109,40,217,.12); color: var(--c-location); }
+  .badge-picking  { background: rgba(8,145,178,.12);  color: var(--c-picking); }
+  .badge-shipping { background: rgba(180,83,9,.12);   color: var(--c-shipping); }
+  .badge-lbl { font-size: 10px; color: var(--muted); text-align: right; }
+
+  .menu-arrow {
+    color: var(--muted); font-size: 16px; flex-shrink: 0;
+  }
+
+  /* ── PC TOOLS ── */
+  .pc-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+    text-decoration: none; color: inherit;
+    transition: transform .12s;
+    margin-bottom: 10px;
+  }
+  .pc-card:active { transform: scale(.97); }
+  .pc-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: #f1f5f9;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .pc-text { flex: 1; }
+  .pc-title { font-size: 15px; font-weight: 700; }
+  .pc-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .pc-arrow { color: var(--muted); font-size: 14px; }
+
+  /* ── ALERT BANNERS ── */
+  .alert {
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .alert-info    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+  /* ── REFRESH BTN ── */
+  .refresh-row {
+    display: flex; justify-content: flex-end; margin-bottom: 12px;
+  }
+  .refresh-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 14px; font-size: 12px; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:active { background: #f1f5f9; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center; padding: 16px;
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* ── USER BADGE ── */
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.15);
+    border-radius: 20px; padding: 5px 12px 5px 8px;
+    font-size: 13px;
+  }
+  .user-badge .logout-btn {
+    background: rgba(255,255,255,.2);
+    border: 1px solid rgba(255,255,255,.3);
+    color: white; border-radius: 8px;
+    padding: 3px 8px; font-size: 11px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="app-name">🏭 IroatoWMS</div>
+      <div class="app-sub">倉庫管理システム</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+      <div class="header-date" id="headerDate"></div>
+      <div id="userBadgeArea"></div>
+    </div>
+  </div>
+
+  <!-- STATUS SUMMARY -->
+  <div class="status-row" id="statusRow">
+    <div class="stat-chip">
+      <div class="stat-chip-val" id="cnt-received">—</div>
+      <div class="stat-chip-lbl">入庫済</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-val" id="cnt-located">—</div>
+      <div class="stat-chip-lbl">ロケ登録済</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-val" id="cnt-picked">—</div>
+      <div class="stat-chip-lbl">ピッキング済</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-val" id="cnt-shipped">—</div>
+      <div class="stat-chip-lbl">出荷済</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <div class="refresh-row">
+    <button class="refresh-btn" onclick="refreshCounts()">↻ 件数を更新</button>
+  </div>
+
+  <!-- ALERTS -->
+  <div id="alertArea"></div>
+
+  <!-- iPhone WORKFLOW -->
+  <div class="section-label">iPhone ワークフロー</div>
+
+  <!-- 1: 入庫処理 -->
+  <a class="menu-card nyuko" href="01_nyuko.html" id="card-nyuko">
+    <div class="menu-icon">📦</div>
+    <div class="menu-text">
+      <div class="menu-step">STEP 1</div>
+      <div class="menu-title">入庫処理</div>
+      <div class="menu-desc">バーコード → CCコードを紐付け登録</div>
+    </div>
+    <div class="menu-badge-wrap">
+      <div class="menu-badge badge-nyuko" id="badge-nyuko">0</div>
+      <div class="badge-lbl">本日入庫</div>
+    </div>
+    <div class="menu-arrow">›</div>
+  </a>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- 2: ロケーション登録 -->
+  <a class="menu-card location" href="02_location.html" id="card-location">
+    <div class="menu-icon">📍</div>
+    <div class="menu-text">
+      <div class="menu-step">STEP 2</div>
+      <div class="menu-title">ロケーション登録</div>
+      <div class="menu-desc">棚の看板CC → 製品CCを紐付け</div>
+    </div>
+    <div class="menu-badge-wrap">
+      <div class="menu-badge badge-location" id="badge-location">0</div>
+      <div class="badge-lbl">未登録</div>
+    </div>
+    <div class="menu-arrow">›</div>
+  </a>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- 3: ピッキング -->
+  <a class="menu-card picking" href="03_picking.html" id="card-picking">
+    <div class="menu-icon">🔍</div>
+    <div class="menu-text">
+      <div class="menu-step">STEP 3</div>
+      <div class="menu-title">ピッキング</div>
+      <div class="menu-desc">ロケーション登録済みをCCスキャンでピック</div>
+    </div>
+    <div class="menu-badge-wrap">
+      <div class="menu-badge badge-picking" id="badge-picking">0</div>
+      <div class="badge-lbl">リスト件数</div>
+    </div>
+    <div class="menu-arrow">›</div>
+  </a>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- 4: 出荷処理 -->
+  <a class="menu-card shipping" href="04_shipping.html" id="card-shipping">
+    <div class="menu-icon">🚚</div>
+    <div class="menu-text">
+      <div class="menu-step">STEP 4</div>
+      <div class="menu-title">出荷処理</div>
+      <div class="menu-desc">CCコードをスキャンして出荷確定</div>
+    </div>
+    <div class="menu-badge-wrap">
+      <div class="menu-badge badge-shipping" id="badge-shipping">0</div>
+      <div class="badge-lbl">ピック済</div>
+    </div>
+    <div class="menu-arrow">›</div>
+  </a>
+
+  <!-- PC TOOLS -->
+  <div class="section-label" style="margin-top:28px;">PC ツール</div>
+
+  <a class="pc-card" href="pc_dashboard.html" style="border-color:rgba(30,58,95,.25);">
+    <div class="pc-icon" style="background:#eff6ff;">📊</div>
+    <div class="pc-text">
+      <div class="pc-title">ダッシュボード</div>
+      <div class="pc-desc">在庫状況・アクティビティ・アラートを一覧表示</div>
+    </div>
+    <div class="pc-arrow">›</div>
+  </a>
+
+  <a class="pc-card" href="pc_picking.html">
+    <div class="pc-icon">🖥️</div>
+    <div class="pc-text">
+      <div class="pc-title">ピッキングリスト作成</div>
+      <div class="pc-desc">在庫一覧からアイテムを選択してリスト作成</div>
+    </div>
+    <div class="pc-arrow">›</div>
+  </a>
+
+  <a class="pc-card" href="pc_location_master.html">
+    <div class="pc-icon">📍</div>
+    <div class="pc-text">
+      <div class="pc-title">ロケーションマスタ管理</div>
+      <div class="pc-desc">ロケーションコード・名前・CCコードの登録・編集</div>
+    </div>
+    <div class="pc-arrow">›</div>
+  </a>
+
+  <a class="pc-card" href="test_locations.html">
+    <div class="pc-icon">📷</div>
+    <div class="pc-text">
+      <div class="pc-title">ロケーションCCコード一覧</div>
+      <div class="pc-desc">loc1〜6のCCコード確認・マスタ登録</div>
+    </div>
+    <div class="pc-arrow">›</div>
+  </a>
+
+  <a class="pc-card" href="test_barcodes.html">
+    <div class="pc-icon">🧪</div>
+    <div class="pc-text">
+      <div class="pc-title">テスト用バーコード</div>
+      <div class="pc-desc">サンプルバーコード＋CCコード一覧</div>
+    </div>
+    <div class="pc-arrow">›</div>
+  </a>
+
+</div>
+
+<div class="footer">IroatoWMS v0.2 — InfoFarm Co., Ltd.</div>
+
+<script>
+const KEY_ITEMS    = 'wms_items';
+const KEY_PICK_LST = 'wms_picking_lists';
+
+function loadItems() {
+  try { return JSON.parse(localStorage.getItem(KEY_ITEMS) || '[]'); }
+  catch { return []; }
+}
+function loadPickingLists() {
+  try { return JSON.parse(localStorage.getItem(KEY_PICK_LST) || '[]'); }
+  catch { return []; }
+}
+
+function refreshCounts() {
+  const items = loadItems();
+  const today = formatDate(new Date());
+
+  const received = items.filter(i => i.status === 'received').length;
+  const located  = items.filter(i => i.status === 'located').length;
+  const picked   = items.filter(i => i.status === 'picked').length;
+  const shipped  = items.filter(i => i.status === 'shipped').length;
+
+  const todayIn  = items.filter(i => i.receivedDate === today).length;
+  const unlocated = items.filter(i => i.status === 'received').length;
+
+  const lists    = loadPickingLists();
+  const openLists = lists.filter(l => l.status === 'open' || l.status === 'in_progress').length;
+
+  // ヘッダーステータス
+  document.getElementById('cnt-received').textContent = received;
+  document.getElementById('cnt-located').textContent  = located;
+  document.getElementById('cnt-picked').textContent   = picked;
+  document.getElementById('cnt-shipped').textContent  = shipped;
+
+  // メニューカードバッジ
+  document.getElementById('badge-nyuko').textContent    = todayIn;
+  document.getElementById('badge-location').textContent = unlocated;
+  document.getElementById('badge-picking').textContent  = openLists;
+  document.getElementById('badge-shipping').textContent = picked;
+
+  // アラート
+  renderAlerts(items, lists);
+}
+
+function renderAlerts(items, lists) {
+  const area = document.getElementById('alertArea');
+  const alerts = [];
+
+  const unlocated = items.filter(i => i.status === 'received').length;
+  if (unlocated > 0) {
+    alerts.push(`<div class="alert alert-warning">⚠ ロケーション未登録の製品が <strong>${unlocated}件</strong> あります</div>`);
+  }
+
+  const openLists = lists.filter(l => l.status === 'in_progress').length;
+  if (openLists > 0) {
+    alerts.push(`<div class="alert alert-info">📋 ピッキング中のリストが <strong>${openLists}件</strong> あります</div>`);
+  }
+
+  area.innerHTML = alerts.join('');
+}
+
+function formatDate(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate());
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+// 日時表示
+function setDate() {
+  const now = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('headerDate').innerHTML =
+    now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日' +
+    '（' + days[now.getDay()] + '）' +
+    pad(now.getHours()) + ':' + pad(now.getMinutes());
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 認証チェック
+  const session = WMSAuth.requireAuth('auth.html');
+  if (!session) return;
+
+  // ユーザーバッジ表示
+  const badgeArea = document.getElementById('userBadgeArea');
+  if (badgeArea) {
+    badgeArea.innerHTML = `
+      <div class="user-badge">
+        <span>👤 ${session.userName}</span>
+        <button class="logout-btn" onclick="WMSAuth.logout();window.location.href='auth.html';">ログアウト</button>
+      </div>`;
+  }
+
+  setDate();
+  refreshCounts();
+});
+
+// ページに戻ってきたときも更新
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshCounts();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IroatoWMS - ピッキング</title>
+<script src="auth.js?v=3"></script>
+<style>
+  :root {
+    --primary:  #0891b2;
+    --success:  #057a55;
+    --danger:   #dc2626;
+    --warning:  #b45309;
+    --location: #6d28d9;
+    --bg:       #f0f9ff;
+    --surface:  #ffffff;
+    --border:   #e5e7eb;
+    --text:     #111827;
+    --muted:    #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    min-height: 100%; background: var(--bg);
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', sans-serif;
+    font-size: 16px; color: var(--text); overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--primary); color: #fff;
+    padding: 12px 16px 10px;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .header-row { display: flex; align-items: center; gap: 10px; }
+  .header h1 { font-size: 17px; font-weight: 700; flex: 1; text-align: center; }
+  .back-btn {
+    background: rgba(255,255,255,.2); border: none; border-radius: 8px;
+    color: #fff; padding: 7px 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+  .step-badge {
+    background: rgba(255,255,255,.25); border-radius: 20px;
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    position: sticky; top: 56px; z-index: 40;
+  }
+  .progress-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .progress-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .progress-count { font-size: 14px; font-weight: 800; color: var(--primary); }
+  .progress-bar-bg { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width .4s ease; }
+  .progress-bar-fill.done { background: var(--success); }
+
+  /* ── CONTENT ── */
+  .content { padding: 14px 14px 180px; max-width: 480px; margin: 0 auto; }
+
+  /* ── STEP1 入力エリア ── */
+  .add-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px; margin-bottom: 16px;
+  }
+  .add-card-title {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    margin-bottom: 10px; letter-spacing: .4px;
+  }
+  .add-input-row {
+    display: flex; gap: 8px; margin-bottom: 8px;
+  }
+  .add-input {
+    flex: 1; padding: 11px 12px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 15px; outline: none; background: var(--bg);
+  }
+  .add-input:focus { border-color: var(--primary); background: #fff; }
+  .add-btn {
+    padding: 11px 16px; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    background: var(--primary); color: #fff;
+    white-space: nowrap;
+  }
+  .scan-row {
+    display: flex; gap: 8px;
+  }
+  .scan-sub-btn {
+    flex: 1; padding: 11px 6px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    background: var(--surface); color: var(--text);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .scan-sub-btn:active { opacity: .7; }
+  .scan-sub-btn.barcode-btn { border-color: #a3e635; background: #f7fee7; color: #365314; }
+  .scan-sub-btn.ocr-btn     { border-color: #93c5fd; background: #eff6ff; color: #1e3a8a; }
+
+  /* ── インクリメンタルサーチ ── */
+  .search-wrap { position: relative; }
+  .suggest-list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100;
+    background: var(--surface); border: 1.5px solid var(--primary);
+    border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    max-height: 220px; overflow-y: auto;
+  }
+  .suggest-item {
+    padding: 10px 14px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .suggest-item:last-child { border-bottom: none; }
+  .suggest-item:active { background: var(--bg); }
+  .suggest-name { font-size: 14px; font-weight: 700; line-height: 1.3; }
+  .suggest-meta { font-size: 11px; color: var(--muted); }
+  .suggest-loc  { font-size: 10px; color: var(--location); font-weight: 700; }
+  .suggest-empty { padding: 12px 14px; font-size: 13px; color: var(--muted); text-align: center; }
+
+  /* ── セッションリスト（STEP1）── */
+  .session-empty {
+    text-align: center; padding: 20px; color: var(--muted); font-size: 13px;
+  }
+  .session-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px 12px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .session-row-info { flex: 1; min-width: 0; }
+  .session-name { font-weight: 700; font-size: 14px; line-height: 1.3; }
+  .session-sub  { font-size: 11px; color: var(--muted); font-family: monospace; margin-top: 2px; }
+  .session-loc  {
+    font-size: 10px; font-weight: 700; color: var(--location);
+    background: #f5f3ff; padding: 2px 7px; border-radius: 8px;
+    white-space: nowrap; margin-top: 4px; display: inline-block;
+  }
+  .session-remove {
+    width: 30px; height: 30px; border: none; border-radius: 50%;
+    background: #fee2e2; color: var(--danger); font-size: 16px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .section-title {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    padding: 4px 4px 8px; letter-spacing: .5px;
+  }
+
+  /* ── PICK ITEM ROW (STEP2) ── */
+  .pick-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+    transition: opacity .3s, background .3s;
+  }
+  .pick-row.picked { background: #f0fdf4; border-color: #bbf7d0; opacity: .65; }
+  .pick-row-check {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; transition: all .2s;
+  }
+  .pick-row.picked .pick-row-check { background: var(--success); border-color: var(--success); color: #fff; }
+  .pick-row-info { flex: 1; min-width: 0; }
+  .pick-row-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 14px; line-height: 1.4; }
+  .pick-name    { font-weight: 700; color: var(--text); }
+  .pick-sep     { color: var(--border); font-size: 12px; }
+  .pick-barcode { color: var(--muted); font-size: 12px; font-family: monospace; }
+  .pick-loc {
+    font-size: 11px; font-weight: 700; color: var(--location);
+    background: #f5f3ff; padding: 2px 8px; border-radius: 10px;
+    margin-top: 3px; display: inline-block;
+  }
+  .pick-row.picked .pick-name { text-decoration: line-through; }
+
+  /* ── FOOTER ── */
+  .scan-footer {
+    position: fixed; bottom: 0; z-index: 60;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 12px 16px 28px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+    left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px;
+  }
+  .scan-big-btn {
+    width: 100%; padding: 17px; border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    -webkit-user-select: none; transition: transform .1s, opacity .15s;
+  }
+  .scan-big-btn:active { transform: scale(.97); }
+  .scan-big-btn.cyan  { background: var(--primary); color: #fff; }
+  .scan-big-btn.green { background: var(--success); color: #fff; }
+  .scan-big-btn.amber { background: #d97706; color: #fff; }
+  .scan-big-btn.disabled { opacity: .45; pointer-events: none; }
+  .scan-hint-text { text-align: center; font-size: 12px; color: var(--muted); margin-top: 7px; }
+  .sub-scan-row { display: flex; gap: 8px; margin-top: 8px; }
+  .sub-scan-btn {
+    flex: 1; padding: 12px 6px; border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    background: var(--surface); color: var(--text);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    -webkit-user-select: none;
+  }
+  .sub-scan-btn:active { opacity: .7; }
+
+  /* ── COMPLETE CARD ── */
+  .complete-card {
+    background: #f0fdf4; border: 2px solid #86efac;
+    border-radius: 16px; padding: 28px 20px; text-align: center; margin-bottom: 14px;
+  }
+  .complete-icon  { font-size: 56px; margin-bottom: 12px; }
+  .complete-title { font-size: 22px; font-weight: 800; color: var(--success); margin-bottom: 6px; }
+  .complete-sub   { font-size: 14px; color: var(--muted); }
+  .btn-secondary {
+    width: 100%; padding: 15px; margin-top: 10px;
+    border: 1.5px solid var(--border); border-radius: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    background: var(--surface); color: var(--text);
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-icon  { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty-sub   { font-size: 13px; line-height: 1.6; }
+
+  /* ── FLASH ── */
+  @keyframes pickFlash {
+    0%   { background: #d1fae5; }
+    100% { background: #f0fdf4; }
+  }
+  .pick-row.just-picked { animation: pickFlash 1s ease; }
+  @keyframes addFlash {
+    0%   { background: #dbeafe; }
+    100% { background: var(--surface); }
+  }
+  .session-row.just-added { animation: addFlash .8s ease; }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed; bottom: 110px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 200; width: calc(100% - 32px); max-width: 440px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #111827; color: #fff;
+    padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    animation: toastIn .3s ease; pointer-events: all;
+    margin-bottom: 6px;
+  }
+  .toast.success { border-left: 4px solid #34d399; }
+  .toast.error   { border-left: 4px solid #f87171; }
+  .toast.warning { border-left: 4px solid #fbbf24; }
+  @keyframes toastIn {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-row">
+    <button class="back-btn" id="backBtn" onclick="handleBack()">← 戻る</button>
+    <h1>🔍 ピッキング</h1>
+    <div class="step-badge" id="stepBadge">STEP 1/2</div>
+  </div>
+</div>
+
+<!-- PROGRESS (STEP2のみ表示) -->
+<div class="progress-wrap" id="progressWrap" style="display:none;">
+  <div class="progress-row">
+    <span class="progress-label" id="progressLabel">ピッキング進捗</span>
+    <span class="progress-count" id="progressCount">0 / 0</span>
+  </div>
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" id="progressFill" style="width:0%;"></div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content" id="mainContent"></div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ============================================================
+// STORAGE KEYS
+// ============================================================
+const KEY_ITEMS = 'wms_items';
+const KEY_TRANS = 'wms_transactions';
+
+// ============================================================
+// STATE
+// ============================================================
+var currentStep  = 1;          // 1: リスト作成, 2: CCスキャン
+var allLocated   = [];         // wms_items で status='located' の全件
+var sessionList  = [];         // 今回ピッキング対象に追加したアイテム
+var pickedIds    = new Set();  // ピック済みのid set
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  WMSAuth.requireAuth('auth.html');
+  loadLocatedItems();
+  renderStep1();
+});
+
+// ============================================================
+// データ読み込み
+// ============================================================
+function loadLocatedItems() {
+  var items = getItems();
+  allLocated = items.filter(function(i) {
+    return i.status === 'located' && !i.deletedAt;
+  });
+}
+
+// ============================================================
+// STEP 1: ピッキングリスト作成
+// ============================================================
+function renderStep1() {
+  currentStep = 1;
+  document.getElementById('stepBadge').textContent = 'STEP 1/2';
+  document.getElementById('progressWrap').style.display = 'none';
+
+  var sessionRows = sessionList.length === 0
+    ? '<div class="session-empty">📋 製品をスキャンまたは入力して追加してください</div>'
+    : sessionList.map(function(item) {
+        return '<div class="session-row" id="srow-' + esc(item.id) + '">' +
+          '<div class="session-row-info">' +
+            '<div class="session-name">' + esc(item.productName || item.barcode || item.ccCode) + '</div>' +
+            (item.productName && item.barcode
+              ? '<div class="session-sub">' + esc(item.barcode) + '</div>'
+              : '') +
+            '<span class="session-loc">📍 ' + esc(item.locationName || item.locationCode || '未ロケーション') + '</span>' +
+          '</div>' +
+          '<button class="session-remove" onclick="removeFromSession(\'' + esc(item.id) + '\')" title="削除">×</button>' +
+        '</div>';
+      }).join('');
+
+  document.getElementById('mainContent').innerHTML =
+    '<div class="add-card">' +
+      '<div class="add-card-title">製品コード・バーコードを入力またはスキャンして追加</div>' +
+      '<div class="search-wrap">' +
+        '<div class="add-input-row">' +
+          '<input class="add-input" id="addInput" type="text" placeholder="製品コード / バーコード" ' +
+            'oninput="onSearchInput(this.value)" ' +
+            'onkeydown="if(event.key===\'Enter\'){addByInput();}">' +
+          '<button class="add-btn" onclick="addByInput()">追加</button>' +
+        '</div>' +
+        '<div id="suggestList"></div>' +
+      '</div>' +
+      '<div class="scan-row">' +
+        '<button class="scan-sub-btn barcode-btn" onclick="addByBarcode()">🔲 バーコード</button>' +
+        '<button class="scan-sub-btn ocr-btn" onclick="addByOCR()">🔤 OCR</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="section-title">追加済み: ' + sessionList.length + '件</div>' +
+    sessionRows;
+
+  // フッター
+  renderStep1Footer();
+}
+
+function renderStep1Footer() {
+  removeFooter();
+  var footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'scan-footer';
+  var canStart = sessionList.length > 0;
+  footer.innerHTML =
+    '<button class="scan-big-btn cyan ' + (canStart ? '' : 'disabled') + '" onclick="startStep2()">' +
+      '📦 ピッキング開始（' + sessionList.length + '件）' +
+    '</button>' +
+    '<div class="scan-hint-text">' +
+      (canStart ? '製品をスキャン後にピッキング開始してください' : '製品を1件以上追加してください') +
+    '</div>';
+  document.body.appendChild(footer);
+}
+
+// ── インクリメンタルサーチ
+function onSearchInput(val) {
+  val = (val || '').trim();
+  if (val.length < 1) {
+    closeSuggestions();
+    return;
+  }
+  renderSuggestions(val);
+}
+
+function renderSuggestions(query) {
+  var sl = document.getElementById('suggestList');
+  if (!sl) return;
+  var lq = query.toLowerCase();
+  var sessionIds = sessionList.map(function(i){ return i.id; });
+  var matches = allLocated.filter(function(i) {
+    if (sessionIds.indexOf(i.id) >= 0) return false;
+    var name = (i.productName || '').toLowerCase();
+    var bc   = (i.barcode   || '').toLowerCase();
+    return name.indexOf(lq) >= 0 || bc.indexOf(lq) >= 0;
+  }).slice(0, 8);
+
+  if (matches.length === 0) {
+    sl.innerHTML =
+      '<div class="suggest-list"><div class="suggest-empty">一致する製品が見つかりません</div></div>';
+  } else {
+    sl.innerHTML = '<div class="suggest-list">' +
+      matches.map(function(item) {
+        return '<div class="suggest-item" onclick="selectSuggestion(\'' + esc(item.id) + '\')">' +
+          '<span class="suggest-name">' + esc(item.productName || item.barcode || item.ccCode) + '</span>' +
+          (item.barcode && item.productName
+            ? '<span class="suggest-meta">' + esc(item.barcode) + '</span>'
+            : '') +
+          (item.locationName || item.locationCode
+            ? '<span class="suggest-loc">📍 ' + esc(item.locationName || item.locationCode) + '</span>'
+            : '') +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+}
+
+function selectSuggestion(id) {
+  var item = allLocated.find(function(i){ return i.id === id; });
+  if (!item) return;
+  closeSuggestions();
+  var inp = document.getElementById('addInput');
+  if (inp) inp.value = '';
+  if (sessionList.find(function(s){ return s.id === item.id; })) {
+    toast('すでにリストに追加済みです', 'warning');
+    return;
+  }
+  sessionList.push(item);
+  toast('✓ ' + esc(item.productName || item.barcode || item.ccCode) + ' をリストに追加しました', 'success');
+  renderStep1();
+  setTimeout(function() {
+    var el = document.getElementById('srow-' + item.id);
+    if (el) el.classList.add('just-added');
+  }, 50);
+}
+
+function closeSuggestions() {
+  var sl = document.getElementById('suggestList');
+  if (sl) sl.innerHTML = '';
+}
+
+// ── 手動入力で追加
+function addByInput() {
+  var val = document.getElementById('addInput').value.trim();
+  if (!val) { toast('製品コードを入力してください', 'warning'); return; }
+  closeSuggestions();
+  document.getElementById('addInput').value = '';
+  addToSession(val, 'manual');
+}
+
+// ── バーコードスキャンで追加
+function addByBarcode() {
+  try {
+    var reader = new IroatoReader('barcode', {
+      mode:       IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor:  IroatoReader.green,
+      lineWidth:  10,
+      labelText:  'ピッキング対象のバーコードをスキャン',
+    });
+    reader.read(function(res) {
+      var code = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (!code) { toast('バーコードを読み取れませんでした', 'error'); return; }
+      addToSession(code.trim(), 'barcode');
+    });
+  } catch(e) {
+    var manual = prompt('バーコード値を入力してください');
+    if (manual && manual.trim()) addToSession(manual.trim(), 'barcode');
+  }
+}
+
+// ── OCRスキャンで追加
+function addByOCR() {
+  try {
+    var reader = new IroatoReader('ocr', {
+      mode:       IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor:  IroatoReader.green,
+      lineWidth:  10,
+      labelText:  '製品コード・バーコード文字をOCRスキャン',
+    });
+    reader.read(function(res) {
+      var text = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (!text) { toast('文字を読み取れませんでした', 'error'); return; }
+      addToSession(text.trim(), 'ocr');
+    });
+  } catch(e) {
+    var manual = prompt('製品コード / バーコード値を入力してください');
+    if (manual && manual.trim()) addToSession(manual.trim(), 'ocr');
+  }
+}
+
+// ── セッションリストへ追加（照合ロジック）
+function addToSession(query, method) {
+  // allLocated から barcode or productName で一致するものを探す
+  var found = allLocated.filter(function(i) {
+    return i.barcode === query ||
+           (i.productName && i.productName === query) ||
+           (i.productName && i.productName.indexOf(query) >= 0 && query.length >= 3);
+  });
+
+  if (found.length === 0) {
+    toast('一致する製品が見つかりません: ' + query, 'warning');
+    return;
+  }
+
+  var addedCount = 0;
+  found.forEach(function(item) {
+    // すでにセッションリストに入っているものはスキップ
+    if (sessionList.find(function(s){ return s.id === item.id; })) return;
+    sessionList.push(item);
+    addedCount++;
+  });
+
+  if (addedCount === 0) {
+    toast('すでにリストに追加済みです', 'warning');
+  } else {
+    toast('✓ ' + addedCount + '件をリストに追加しました', 'success');
+    renderStep1();
+    // アニメーション
+    setTimeout(function() {
+      found.slice(0, addedCount).forEach(function(item) {
+        var el = document.getElementById('srow-' + item.id);
+        if (el) el.classList.add('just-added');
+      });
+    }, 50);
+  }
+}
+
+// ── セッションリストから削除
+function removeFromSession(id) {
+  sessionList = sessionList.filter(function(i){ return i.id !== id; });
+  renderStep1();
+}
+
+// ============================================================
+// STEP 2: CCスキャン
+// ============================================================
+function startStep2() {
+  if (sessionList.length === 0) { toast('製品を1件以上追加してください', 'warning'); return; }
+  currentStep = 2;
+  pickedIds = new Set();
+
+  // ロケーション順（locationCode → locationName → 未登録を末尾）でソート
+  sessionList.sort(function(a, b) {
+    var la = a.locationCode || a.locationName || '\uFFFF';
+    var lb = b.locationCode || b.locationName || '\uFFFF';
+    return la.localeCompare(lb, 'ja');
+  });
+
+  document.getElementById('stepBadge').textContent = 'STEP 2/2';
+  document.getElementById('backBtn').textContent = '← リスト';
+  renderStep2();
+}
+
+function renderStep2() {
+  var total     = sessionList.length;
+  var picked    = pickedIds.size;
+  var remaining = total - picked;
+  var pct       = total > 0 ? Math.round(picked / total * 100) : 0;
+  var isDone    = total > 0 && picked === total;
+
+  // プログレス
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressCount').textContent = picked + ' / ' + total;
+  document.getElementById('progressLabel').textContent =
+    isDone ? '✅ ピッキング完了！' : 'ピッキング進捗 ' + pct + '%';
+  var fill = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-bar-fill' + (isDone ? ' done' : '');
+
+  if (isDone) {
+    renderComplete(total);
+    return;
+  }
+
+  // ピックリスト
+  var rows = sessionList.map(function(item) {
+    var isPicked = pickedIds.has(item.id);
+    return '<div class="pick-row ' + (isPicked ? 'picked' : '') + '" id="prow-' + esc(item.id) + '">' +
+      '<div class="pick-row-check">' + (isPicked ? '✓' : '') + '</div>' +
+      '<div class="pick-row-info">' +
+        '<div class="pick-row-main">' +
+          '<span class="pick-name">' + esc(item.productName || item.barcode || item.ccCode) + '</span>' +
+          (item.productName && item.barcode
+            ? '<span class="pick-sep">·</span><span class="pick-barcode">' + esc(item.barcode) + '</span>'
+            : '') +
+        '</div>' +
+        '<div>' +
+          '<span class="pick-loc">📍 ' + esc(item.locationName || item.locationCode || '未ロケーション') + '</span>' +
+          (isPicked ? '<span style="font-size:11px;color:var(--success);margin-left:6px;">✓ ピック済</span>' : '') +
+          (!item.ccCode ? '<span style="font-size:11px;color:#dc2626;margin-left:6px;">⚠ CC未登録</span>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('mainContent').innerHTML =
+    '<div class="section-title">ピッキング対象: ' + total + '件（残り ' + remaining + '件）</div>' +
+    rows;
+
+  renderStep2Footer(remaining);
+}
+
+function renderStep2Footer(remaining) {
+  removeFooter();
+  var noCCCount = sessionList.filter(function(i){ return !i.ccCode && !pickedIds.has(i.id); }).length;
+  var canCC     = remaining > noCCCount;
+
+  var footer = document.createElement('div');
+  footer.id = 'dynamicFooter';
+  footer.className = 'scan-footer';
+  footer.innerHTML =
+    '<button class="scan-big-btn cyan ' + (canCC ? '' : 'disabled') + '" onclick="executeCCScan()">' +
+      '<span>📷</span> CCスキャン（残り ' + remaining + '件）' +
+    '</button>' +
+    '<div class="sub-scan-row">' +
+      '<button class="sub-scan-btn" onclick="executeBarcodePick()">🔲 バーコード</button>' +
+      '<button class="sub-scan-btn" onclick="executeOCRPick()">🔤 OCR</button>' +
+    '</div>' +
+    (noCCCount > 0
+      ? '<button class="scan-big-btn" style="background:#fee2e2;color:#dc2626;margin-top:8px;border:none;" onclick="skipNoCCItems()">⚠ CC未登録 ' + noCCCount + '件をスキップ</button>'
+      : '') +
+    '<div class="scan-hint-text">CCコードをまとめスキャン、またはバーコード/OCRで1件ずつ</div>';
+  document.body.appendChild(footer);
+}
+
+// ── CCまとめスキャン
+function executeCCScan() {
+  var targets     = sessionList.filter(function(i){ return !pickedIds.has(i.id) && i.ccCode; });
+  var searchCodes = targets.map(function(i){ return i.ccCode; });
+
+  if (targets.length === 0) { toast('スキャン対象がありません', 'warning'); return; }
+
+  var displayData = {};
+  sessionList.forEach(function(i) {
+    if (i.ccCode) displayData[i.ccCode] = i.productName || i.barcode || i.ccCode;
+  });
+
+  try {
+    var reader = new IroatoReader('cc', {
+      mode:         IroatoReader.multi,
+      resolution:   IroatoReader.r1280x720,
+      labelText:    'ピッキング - まとめスキャン（' + targets.length + '件）',
+      lineColor:    IroatoReader.green,
+      lineWidth:    10,
+      errLineColor: IroatoReader.red,
+      searchCodes:  searchCodes,
+      displayData:  Object.keys(displayData).length > 0 ? displayData : undefined,
+    });
+    reader.read(function(res) {
+      if (!res || !res.status || !res.data || !res.data.codes || res.data.codes.length === 0) {
+        toast('スキャンがキャンセルされました', 'warning');
+        return;
+      }
+      var codes = res.data.codes.map(function(c){ return c.code; }).filter(Boolean);
+      handleCCScan(codes);
+    });
+  } catch(e) {
+    var manual = prompt('CCコードをカンマ区切りで入力\n例: 91,92,93');
+    if (manual && manual.trim()) {
+      handleCCScan(manual.split(',').map(function(s){ return s.trim(); }).filter(Boolean));
+    }
+  }
+}
+
+function handleCCScan(codes) {
+  var matched = 0;
+  var notFound = [];
+  codes.forEach(function(scannedCC) {
+    var item = sessionList.find(function(i){ return i.ccCode === scannedCC && !pickedIds.has(i.id); });
+    if (item) {
+      pickedIds.add(item.id);
+      matched++;
+      updateItemStatus(item.id, 'picked');
+      flashRow(item.id);
+    } else {
+      var already = sessionList.find(function(i){ return i.ccCode === scannedCC && pickedIds.has(i.id); });
+      if (!already) notFound.push(scannedCC);
+    }
+  });
+  if (matched > 0)         toast('✓ ' + matched + '件をピックしました', 'success');
+  if (notFound.length > 0) toast('リスト外: ' + notFound.join(', '), 'warning');
+  if (matched === 0 && notFound.length === 0) toast('すでにピック済みです', 'warning');
+  renderStep2();
+}
+
+// ── バーコード1件ピック
+function executeBarcodePick() {
+  try {
+    var reader = new IroatoReader('barcode', {
+      mode:       IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor:  IroatoReader.green,
+      lineWidth:  10,
+      labelText:  'ピッキング対象のバーコードをスキャン',
+    });
+    reader.read(function(res) {
+      var code = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (!code) { toast('バーコードを読み取れませんでした', 'error'); return; }
+      handleBarcodePick(code.trim());
+    });
+  } catch(e) {
+    var manual = prompt('バーコード値を入力してください');
+    if (manual && manual.trim()) handleBarcodePick(manual.trim());
+  }
+}
+
+function handleBarcodePick(barcode) {
+  var item = sessionList.find(function(i){ return i.barcode === barcode && !pickedIds.has(i.id); });
+  if (!item) {
+    var already = sessionList.find(function(i){ return i.barcode === barcode; });
+    toast(already ? 'すでにピック済みです' : 'リストに該当しません: ' + barcode, 'warning');
+    return;
+  }
+  pickedIds.add(item.id);
+  updateItemStatus(item.id, 'picked');
+  flashRow(item.id);
+  toast('✓ ピックしました: ' + (item.productName || barcode), 'success');
+  renderStep2();
+}
+
+// ── OCR1件ピック
+function executeOCRPick() {
+  try {
+    var reader = new IroatoReader('ocr', {
+      mode:       IroatoReader.single,
+      resolution: IroatoReader.r1280x720,
+      lineColor:  IroatoReader.green,
+      lineWidth:  10,
+      labelText:  '製品コード・バーコード文字をOCRスキャン',
+    });
+    reader.read(function(res) {
+      var text = res && res.data && res.data.codes && res.data.codes.length > 0 && res.data.codes[0].code;
+      if (!text) { toast('文字を読み取れませんでした', 'error'); return; }
+      handleOCRPick(text.trim());
+    });
+  } catch(e) {
+    var manual = prompt('製品コード / バーコード値を入力してください');
+    if (manual && manual.trim()) handleOCRPick(manual.trim());
+  }
+}
+
+function handleOCRPick(text) {
+  var item = sessionList.find(function(i){
+    return !pickedIds.has(i.id) && (
+      i.barcode === text ||
+      (i.productName && i.productName.indexOf(text) >= 0)
+    );
+  });
+  if (!item) { toast('一致する製品が見つかりません: ' + text, 'warning'); return; }
+  pickedIds.add(item.id);
+  updateItemStatus(item.id, 'picked');
+  flashRow(item.id);
+  toast('✓ ピックしました: ' + (item.productName || item.barcode || text), 'success');
+  renderStep2();
+}
+
+// ── CC未登録をスキップ
+function skipNoCCItems() {
+  var noCCItems = sessionList.filter(function(i){ return !i.ccCode && !pickedIds.has(i.id); });
+  noCCItems.forEach(function(i){
+    pickedIds.add(i.id);
+    updateItemStatus(i.id, 'picked');
+  });
+  toast(noCCItems.length + '件をスキップしました', 'warning');
+  renderStep2();
+}
+
+// ── ピック済み行フラッシュ
+function flashRow(id) {
+  var el = document.getElementById('prow-' + id);
+  if (!el) return;
+  el.classList.add('picked', 'just-picked');
+  el.querySelector('.pick-row-check').textContent = '✓';
+  setTimeout(function(){ el.classList.remove('just-picked'); }, 1200);
+}
+
+// ============================================================
+// 完了画面
+// ============================================================
+function renderComplete(total) {
+  removeFooter();
+
+  document.getElementById('mainContent').innerHTML =
+    '<div class="complete-card">' +
+      '<div class="complete-icon">🎉</div>' +
+      '<div class="complete-title">ピッキング完了！</div>' +
+      '<div class="complete-sub">' + total + '件すべてのピッキングが完了しました</div>' +
+    '</div>' +
+    '<div style="padding:0 2px;">' +
+      '<button class="scan-big-btn green" style="border:none;" onclick="startNewSession()">✓ 新しいピッキングを開始</button>' +
+      '<button class="btn-secondary" onclick="window.location.href=\'index.html\'">🏠 メニューへ戻る</button>' +
+    '</div>';
+
+  // トランザクションログ
+  try {
+    var txs = JSON.parse(localStorage.getItem(KEY_TRANS) || '[]');
+    txs.push({ id: genId(), type: 'picking_done', itemCount: total, at: formatDateTime(new Date()) });
+    localStorage.setItem(KEY_TRANS, JSON.stringify(txs));
+  } catch(e) {}
+}
+
+function startNewSession() {
+  sessionList = [];
+  pickedIds = new Set();
+  loadLocatedItems();
+  document.getElementById('backBtn').textContent = '← 戻る';
+  renderStep1();
+}
+
+// ============================================================
+// wms_items ステータス更新
+// ============================================================
+function updateItemStatus(id, status) {
+  var items = getItems();
+  var idx   = items.findIndex(function(i){ return i.id === id; });
+  if (idx < 0) return;
+  var now = new Date();
+  try {
+    items[idx] = WMSAuth.updateAuditFields(Object.assign({}, items[idx], {
+      status:     status,
+      pickedAt:   formatDateTime(now),
+      pickedDate: formatDate(now),
+    }));
+  } catch(e) {
+    items[idx].status     = status;
+    items[idx].pickedAt   = formatDateTime(now);
+    items[idx].pickedDate = formatDate(now);
+  }
+  saveItems(items);
+}
+
+// ============================================================
+// BACK
+// ============================================================
+function handleBack() {
+  if (currentStep === 2) {
+    // STEP2 → STEP1 に戻る（ピック済みは維持しない）
+    pickedIds = new Set();
+    document.getElementById('backBtn').textContent = '← 戻る';
+    renderStep1();
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
+// ============================================================
+// FOOTER
+// ============================================================
+function removeFooter() {
+  var old = document.getElementById('dynamicFooter');
+  if (old) old.remove();
+}
+
+// ============================================================
+// DATA ACCESS
+// ============================================================
+function getItems() {
+  try { return JSON.parse(localStorage.getItem(KEY_ITEMS) || '[]'); }
+  catch(e) { return []; }
+}
+function saveItems(items) {
+  localStorage.setItem(KEY_ITEMS, JSON.stringify(items));
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type) {
+  type = type || 'success';
+  var icons = { success: '✓', error: '✕', warning: '⚠' };
+  var el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span>' + (icons[type] || 'i') + '</span> ' + String(msg);
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(function(){ el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2700);
+  setTimeout(function(){ el.remove(); }, 3000);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+}
+function formatDate(d) {
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate());
+}
+function formatDateTime(d) {
+  return formatDate(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

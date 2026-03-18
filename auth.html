@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IroatoWMS ログイン</title>
+<!-- キャッシュ無効化 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script src="auth.js?v=3"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+    background: linear-gradient(135deg, #1a3a2a 0%, #2d7a4f 60%, #4a9d72 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    background: white;
+    border-radius: 24px;
+    padding: 36px 28px 32px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .logo { text-align: center; margin-bottom: 24px; }
+  .logo-icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72);
+    border-radius: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 32px; margin-bottom: 10px;
+  }
+  .logo h1 { font-size: 20px; font-weight: 700; color: #1a3a2a; }
+  .logo p { font-size: 12px; color: #888; margin-top: 3px; }
+
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 5px; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 14px 16px;
+    border: 2px solid #e8e8e8; border-radius: 12px;
+    font-size: 16px; color: #222; background: #fafafa;
+    -webkit-appearance: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { outline: none; border-color: #2d7a4f; background: white; }
+
+  .btn-login {
+    width: 100%; padding: 16px;
+    background: linear-gradient(135deg, #2d7a4f, #4a9d72);
+    color: white; border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 700; cursor: pointer;
+    margin-top: 6px; letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(45,122,79,0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-login:active { opacity: 0.85; }
+
+  .msg {
+    border-radius: 10px; padding: 11px 14px;
+    font-size: 13px; margin-bottom: 14px; display: none;
+  }
+  .msg.error { background: #fff0f0; color: #c44; border: 1px solid #fcc; }
+  .msg.success { background: #f0fff4; color: #2d7a4f; border: 1px solid #b2dfcd; }
+
+  .footer-note { text-align: center; font-size: 12px; color: #aaa; margin-top: 18px; }
+
+  /* デバッグパネル */
+  .debug-panel {
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    padding-top: 14px;
+  }
+  .debug-toggle {
+    background: none; border: 1px solid #ddd;
+    border-radius: 8px; padding: 6px 12px;
+    font-size: 12px; color: #aaa; cursor: pointer;
+    width: 100%; text-align: center;
+  }
+  .debug-content { display: none; margin-top: 10px; }
+  .debug-content.open { display: block; }
+  .debug-info {
+    background: #f8f8f8; border-radius: 8px;
+    padding: 10px 12px; font-size: 11px;
+    color: #555; font-family: monospace;
+    word-break: break-all; line-height: 1.6;
+    margin-bottom: 8px;
+    max-height: 120px; overflow-y: auto;
+  }
+  .btn-reset {
+    width: 100%; padding: 9px;
+    background: #fee; border: 1px solid #fcc;
+    border-radius: 8px; font-size: 12px;
+    color: #c44; cursor: pointer;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <div class="logo-icon">📦</div>
+    <h1>IroatoWMS</h1>
+    <p>倉庫管理システム</p>
+  </div>
+
+  <div class="msg success" id="successMsg"></div>
+  <div class="msg error" id="errorMsg"></div>
+
+  <div id="loginForm">
+    <div class="form-group">
+      <label>ユーザーID</label>
+      <!-- inputmode="text" に修正（emailだとiPhoneが@を補完する場合あり） -->
+      <input type="text" id="userId"
+        placeholder="admin"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        inputmode="text">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="password"
+        placeholder="パスワードを入力"
+        autocomplete="current-password">
+    </div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">ログイン</button>
+  </div>
+
+  <div class="footer-note">
+    初期ユーザー: <strong>admin</strong> / <strong>admin1234</strong>
+  </div>
+
+  <!-- デバッグパネル -->
+  <div class="debug-panel">
+    <button class="debug-toggle" onclick="toggleDebug()">🔧 デバッグ情報</button>
+    <div class="debug-content" id="debugContent">
+      <div class="debug-info" id="debugInfo">読み込み中...</div>
+      <button class="btn-reset" onclick="resetUsers()">⚠️ ユーザーデータ初期化（admin/admin1234に戻す）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  デバッグ
+// ============================================================
+function toggleDebug() {
+  const el = document.getElementById('debugContent');
+  el.classList.toggle('open');
+  if (el.classList.contains('open')) updateDebugInfo();
+}
+
+function updateDebugInfo() {
+  const lines = [];
+
+  // WMSAuth存在確認
+  lines.push('WMSAuth: ' + (typeof WMSAuth !== 'undefined' ? '✅ 読み込み済み' : '❌ 未定義'));
+
+  // localStorage確認
+  try {
+    localStorage.setItem('__test__', '1');
+    localStorage.removeItem('__test__');
+    lines.push('localStorage: ✅ 利用可能');
+  } catch(e) {
+    lines.push('localStorage: ❌ ' + e.message);
+  }
+
+  // 登録ユーザー確認
+  try {
+    const raw = localStorage.getItem('wms_users');
+    if (raw) {
+      const users = JSON.parse(raw);
+      lines.push('登録ユーザー数: ' + users.length);
+      users.forEach(u => {
+        lines.push('  - id:' + u.id + ' active:' + u.active + ' role:' + u.role);
+      });
+    } else {
+      lines.push('登録ユーザー: なし（初回ログイン時に自動作成）');
+    }
+  } catch(e) {
+    lines.push('ユーザー取得エラー: ' + e.message);
+  }
+
+  // セッション確認
+  try {
+    const raw = localStorage.getItem('wms_session');
+    if (raw) {
+      const s = JSON.parse(raw);
+      lines.push('セッション: ' + s.userName + ' (' + s.userId + ')');
+    } else {
+      lines.push('セッション: なし');
+    }
+  } catch(e) {
+    lines.push('セッション確認エラー: ' + e.message);
+  }
+
+  // IroatoReader確認
+  try {
+    if (typeof IroatoReader !== 'undefined') {
+      lines.push('IroatoReader: ✅ 利用可能');
+      if (IroatoReader.userInfo) {
+        lines.push('userInfo[0]: ' + JSON.stringify(IroatoReader.userInfo[0]));
+      }
+    } else {
+      lines.push('IroatoReader: PC環境（通常）');
+    }
+  } catch(e) {
+    lines.push('IroatoReader確認: ' + e.message);
+  }
+
+  document.getElementById('debugInfo').textContent = lines.join('\n');
+}
+
+// ユーザーデータ初期化
+function resetUsers() {
+  if (!confirm('ユーザーデータを初期化しますか？\nadmin / admin1234 でログインできるようになります。')) return;
+  try {
+    localStorage.removeItem('wms_users');
+    localStorage.removeItem('wms_session');
+    showMsg('success', '✅ 初期化しました。admin / admin1234 でログインしてください。');
+    updateDebugInfo();
+  } catch(e) {
+    showMsg('error', '初期化エラー: ' + e.message);
+  }
+}
+
+// ============================================================
+//  ログイン処理
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // WMSAuthが読み込まれているか確認
+  if (typeof WMSAuth === 'undefined') {
+    showMsg('error', '⚠️ auth.jsの読み込みに失敗しました。ページを再読み込みしてください。');
+    document.getElementById('loginBtn').disabled = true;
+    return;
+  }
+
+  // 既にセッションがあればリダイレクト
+  try {
+    const session = WMSAuth.getSession();
+    if (session) {
+      showMsg('success', `✅ ${session.userName} としてログイン済みです。移動します...`);
+      setTimeout(redirectAfterLogin, 800);
+      return;
+    }
+  } catch(e) { /* 無視 */ }
+
+  // IroatoReader.userInfo[0] による自動ログイン試行
+  try {
+    const autoResult = WMSAuth.tryAutoLogin();
+    if (autoResult.success) {
+      showMsg('success', `✅ ${autoResult.session.userName} として自動ログインしました`);
+      setTimeout(redirectAfterLogin, 800);
+      return;
+    }
+  } catch(e) { /* 無視 */ }
+});
+
+function doLogin() {
+  const userId = document.getElementById('userId').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!userId || !password) {
+    showMsg('error', 'ユーザーIDとパスワードを入力してください');
+    return;
+  }
+
+  // WMSAuthが読み込まれているか確認
+  if (typeof WMSAuth === 'undefined') {
+    showMsg('error', '⚠️ auth.jsが読み込まれていません。ページを再読み込みしてください。');
+    return;
+  }
+
+  try {
+    const result = WMSAuth.login(userId, password);
+    if (result.success) {
+      showMsg('success', `✅ ログイン成功！移動します...`);
+      setTimeout(redirectAfterLogin, 500);
+    } else {
+      showMsg('error', result.message + '\n（入力: ' + userId + '）');
+    }
+  } catch(e) {
+    showMsg('error', 'エラーが発生しました: ' + e.message);
+  }
+}
+
+function redirectAfterLogin() {
+  const params = new URLSearchParams(window.location.search);
+  const redirect = params.get('redirect');
+  if (redirect && redirect.startsWith('http')) {
+    window.location.href = redirect;
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
+function showMsg(type, text) {
+  // 両方非表示にして
+  document.getElementById('errorMsg').style.display = 'none';
+  document.getElementById('successMsg').style.display = 'none';
+  // 指定したほうを表示
+  const el = document.getElementById(type === 'error' ? 'errorMsg' : 'successMsg');
+  el.style.display = 'block';
+  // 改行を<br>に変換
+  el.innerHTML = text.replace(/\n/g, '<br>');
+}
+
+// Enterキーでログイン
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
