@@ -911,8 +911,6 @@ let state = {
   matchedRecord: null,  // for return flow
 };
 
-let recognition = null;
-let currentMicTarget = null;
 
 // ============================================================
 // INIT
@@ -1361,61 +1359,11 @@ function registerReturn() {
 // VOICE INPUT (Web Speech API)
 // ============================================================
 function toggleVoice(inputId, micBtnId) {
-  const micBtn = document.getElementById(micBtnId);
-
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    toast('この端末では音声入力に対応していません', 'warning');
-    return;
-  }
-
-  if (recognition && currentMicTarget === inputId) {
-    recognition.stop();
-    recognition = null;
-    currentMicTarget = null;
-    micBtn.classList.remove('recording');
-    return;
-  }
-
-  // Stop any existing
-  if (recognition) {
-    recognition.stop();
-    if (currentMicTarget) {
-      document.getElementById(currentMicTarget.replace('input','mic')).classList.remove('recording');
-    }
-  }
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'ja-JP';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  currentMicTarget = inputId;
-  micBtn.classList.add('recording');
-
-  recognition.onresult = function(event) {
-    const transcript = event.results[0][0].transcript;
-    document.getElementById(inputId).value = transcript;
-    micBtn.classList.remove('recording');
-    recognition = null;
-    currentMicTarget = null;
-  };
-
-  recognition.onerror = function() {
-    micBtn.classList.remove('recording');
-    recognition = null;
-    currentMicTarget = null;
-    toast('音声を認識できませんでした', 'warning');
-  };
-
-  recognition.onend = function() {
-    micBtn.classList.remove('recording');
-    if (currentMicTarget === inputId) {
-      recognition = null;
-      currentMicTarget = null;
-    }
-  };
-
-  recognition.start();
+  // 入力欄にフォーカスしてiOSキーボードを表示
+  // → キーボードのマイクアイコンから音声入力が可能
+  const input = document.getElementById(inputId);
+  input.focus();
+  toast('キーボードのマイクボタンで音声入力できます', 'success');
 }
 
 // ============================================================
