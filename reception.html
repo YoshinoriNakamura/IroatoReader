@@ -277,6 +277,14 @@
     border-color: var(--success);
     background: linear-gradient(135deg, #ecfdf5, #d1fae5);
   }
+  .scan-area.scan-error {
+    border-style: solid;
+    border-color: var(--danger);
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  }
+  .scan-value.error-text {
+    color: var(--danger);
+  }
   .scan-icon { font-size: 40px; margin-bottom: 8px; }
   .scan-label { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
   .scan-value {
@@ -1192,6 +1200,12 @@ function scanArmband() {
   scanCC('腕章のカメレオンコードをかざしてください', SK_ARM_MASTER, function(code) {
     state.armbandCode = code;
     state.armbandName = lookupArmName(code);
+    if (!state.armbandName) {
+      updateScanArea('scanAreaArmband', code, null, '腕章', true);
+      toast('この腕章はマスタに登録されていません', 'error');
+      state.armbandCode = null;
+      return;
+    }
     updateScanArea('scanAreaArmband', code, state.armbandName, '腕章');
     setTimeout(() => departGoToVehicle(), 600);
   });
@@ -1201,6 +1215,12 @@ function scanVehicle() {
   scanCC('車両プレートのカメレオンコードをかざしてください', SK_VEH_MASTER, function(code) {
     state.vehicleCode = code;
     state.vehicleName = lookupVehName(code);
+    if (!state.vehicleName) {
+      updateScanArea('scanAreaVehicle', code, null, '車両プレート', true);
+      toast('この車両プレートはマスタに登録されていません', 'error');
+      state.vehicleCode = null;
+      return;
+    }
     updateScanArea('scanAreaVehicle', code, state.vehicleName, '車両プレート');
     setTimeout(() => departGoToConfirm(), 600);
   });
@@ -1210,6 +1230,12 @@ function scanReturnArmband() {
   scanCC('返却する腕章のカメレオンコードをかざしてください', SK_ARM_MASTER, function(code) {
     state.armbandCode = code;
     state.armbandName = lookupArmName(code);
+    if (!state.armbandName) {
+      updateScanArea('scanAreaReturnArmband', code, null, '腕章', true);
+      toast('この腕章はマスタに登録されていません', 'error');
+      state.armbandCode = null;
+      return;
+    }
     // Find the active departure record with this armband
     const records = loadRecords();
     const match = records.find(r => r.armbandCode === code && !r.returnAt);
@@ -1229,6 +1255,12 @@ function scanReturnVehicle() {
   scanCC('返却する車両プレートのカメレオンコードをかざしてください', SK_VEH_MASTER, function(code) {
     state.vehicleCode = code;
     state.vehicleName = lookupVehName(code);
+    if (!state.vehicleName) {
+      updateScanArea('scanAreaReturnVehicle', code, null, '車両プレート', true);
+      toast('この車両プレートはマスタに登録されていません', 'error');
+      state.vehicleCode = null;
+      return;
+    }
     updateScanArea('scanAreaReturnVehicle', code, state.vehicleName, '車両プレート');
     setTimeout(() => returnGoToConfirm(), 600);
   });
@@ -1257,6 +1289,8 @@ function scanCC(labelText, masterKey, callback) {
     };
     if (displayData) {
       opts.displayData = displayData;
+      // マスタ登録済みコードのみ認識対象にする
+      opts.searchCodes = Object.keys(displayData);
     }
 
     var reader = new IroatoReader('cc', opts);
@@ -1279,13 +1313,22 @@ function scanCC(labelText, masterKey, callback) {
   }
 }
 
-function updateScanArea(areaId, code, name, type) {
+function updateScanArea(areaId, code, name, type, isError) {
   const area = document.getElementById(areaId);
-  area.className = 'scan-area scanned';
-  area.innerHTML =
-    '<div class="scan-icon">✅</div>' +
-    '<div class="scan-label">' + esc(type) + ' 読み取り完了</div>' +
-    '<div class="scan-value">' + esc(name || code) + '</div>';
+  if (isError) {
+    area.className = 'scan-area scan-error';
+    area.innerHTML =
+      '<div class="scan-icon">❌</div>' +
+      '<div class="scan-label" style="color:var(--danger);font-weight:700;">' + esc(type) + ' 未登録</div>' +
+      '<div class="scan-value error-text">コード: ' + esc(code) + '</div>' +
+      '<div style="font-size:14px;color:var(--danger);margin-top:8px;">マスタに登録されていません。<br>再度スキャンしてください。</div>';
+  } else {
+    area.className = 'scan-area scanned';
+    area.innerHTML =
+      '<div class="scan-icon">✅</div>' +
+      '<div class="scan-label">' + esc(type) + ' 読み取り完了</div>' +
+      '<div class="scan-value">' + esc(name || code) + '</div>';
+  }
 }
 
 function resetScanArea(areaId) {
