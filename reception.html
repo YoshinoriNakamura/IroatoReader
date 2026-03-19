@@ -527,7 +527,7 @@
       <h1>受付システム</h1>
       <div class="header-sub" id="headerSub">敷地内作業 入退場管理</div>
     </div>
-    <button class="admin-btn" id="btnAdminOpen" onclick="openAdminAuth()">管理者</button>
+    <button class="admin-btn" id="btnAdminOpen" onclick="openAdminAuth()">管理者メニュー</button>
   </div>
 </div>
 
@@ -791,7 +791,7 @@
           <table class="data-table" id="adminTable">
             <thead>
               <tr>
-                <th>会社名</th><th>個人名</th><th>腕章コード</th><th>腕章名</th><th>車両プレート名</th><th>出庫日時</th><th>帰庫日時</th>
+                <th>会社名</th><th>個人名</th><th>腕章名</th><th>車両プレート名</th><th>出庫日時</th><th>帰庫日時</th>
               </tr>
             </thead>
             <tbody id="adminTableBody"></tbody>
@@ -1031,10 +1031,8 @@ function departBackToArmband() {
 function departGoToConfirm() {
   document.getElementById('cfmCompany').textContent = state.company;
   document.getElementById('cfmName').textContent = state.personName;
-  document.getElementById('cfmArmband').innerHTML = esc(state.armbandCode) +
-    (state.armbandName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.armbandName) + '</span>' : '');
-  document.getElementById('cfmVehicle').innerHTML = esc(state.vehicleCode) +
-    (state.vehicleName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.vehicleName) + '</span>' : '');
+  document.getElementById('cfmArmband').textContent = state.armbandName || state.armbandCode;
+  document.getElementById('cfmVehicle').textContent = state.vehicleName || state.vehicleCode;
   showView('view-depart-confirm');
   updateDepartSteps(4);
 }
@@ -1136,10 +1134,8 @@ function returnGoToConfirm() {
   document.getElementById('rcfmCompany').textContent = rec.company;
   document.getElementById('rcfmName').textContent = rec.personName;
   document.getElementById('rcfmDepartTime').textContent = rec.departAt;
-  document.getElementById('rcfmArmband').innerHTML = esc(state.armbandCode) +
-    (state.armbandName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.armbandName) + '</span>' : '');
-  document.getElementById('rcfmVehicle').innerHTML = esc(state.vehicleCode) +
-    (state.vehicleName ? '<br><span style="color:var(--accent);font-size:14px;">' + esc(state.vehicleName) + '</span>' : '');
+  document.getElementById('rcfmArmband').textContent = state.armbandName || state.armbandCode;
+  document.getElementById('rcfmVehicle').textContent = state.vehicleName || state.vehicleCode;
   showView('view-return-confirm');
   updateReturnSteps(3);
 }
@@ -1242,8 +1238,7 @@ function updateScanArea(areaId, code, name, type) {
   area.innerHTML =
     '<div class="scan-icon">✅</div>' +
     '<div class="scan-label">' + esc(type) + ' 読み取り完了</div>' +
-    '<div class="scan-value">' + esc(code) + '</div>' +
-    (name ? '<div class="scan-name">' + esc(name) + '</div>' : '');
+    '<div class="scan-value">' + esc(name || code) + '</div>';
 }
 
 function resetScanArea(areaId) {
@@ -1435,7 +1430,6 @@ function renderAdminTable() {
     <tr>
       <td>${esc(r.company)}</td>
       <td>${esc(r.personName)}</td>
-      <td style="font-family:monospace;font-size:11px;">${esc(r.armbandCode)}</td>
       <td>${esc(r.armbandName || '—')}</td>
       <td>${esc(r.vehicleName || '—')}</td>
       <td style="white-space:nowrap;">${esc(r.departAt)}</td>
@@ -1457,12 +1451,11 @@ function downloadCSV() {
 
   // Build CSV
   const BOM = '\uFEFF';
-  let csv = BOM + '会社名,個人名,腕章コード,腕章名,車両プレート名,出庫日時,帰庫日時\n';
+  let csv = BOM + '会社名,個人名,腕章名,車両プレート名,出庫日時,帰庫日時\n';
   filtered.forEach(r => {
     csv += [
       csvEsc(r.company),
       csvEsc(r.personName),
-      csvEsc(r.armbandCode),
       csvEsc(r.armbandName || ''),
       csvEsc(r.vehicleName || ''),
       csvEsc(r.departAt),
