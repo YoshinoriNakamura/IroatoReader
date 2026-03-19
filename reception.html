@@ -42,7 +42,7 @@
   html, body {
     height: 100%; background: var(--bg);
     font-family: -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
-    font-size: 16px; color: var(--text);
+    font-size: 18px; color: var(--text);
     overflow-x: hidden;
   }
 
@@ -55,8 +55,8 @@
     box-shadow: var(--shadow-lg);
   }
   .header-row { display: flex; align-items: center; justify-content: space-between; }
-  .header h1 { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
-  .header-sub { font-size: 12px; opacity: .6; margin-top: 2px; font-weight: 400; }
+  .header h1 { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+  .header-sub { font-size: 13px; opacity: .6; margin-top: 2px; font-weight: 400; }
   .admin-btn {
     background: rgba(255,255,255,.1);
     border: 1px solid rgba(255,255,255,.2);
@@ -92,12 +92,12 @@
     padding-top: 20px;
   }
   .home-title h2 {
-    font-size: 28px; font-weight: 800;
+    font-size: 32px; font-weight: 800;
     color: var(--text);
     margin-bottom: 8px;
   }
   .home-title p {
-    font-size: 15px; color: var(--text-secondary);
+    font-size: 17px; color: var(--text-secondary);
   }
 
   .choice-grid {
@@ -127,13 +127,13 @@
     display: block;
   }
   .choice-label {
-    font-size: 22px; font-weight: 800;
+    font-size: 26px; font-weight: 800;
     margin-bottom: 6px;
   }
   .choice-card.depart .choice-label { color: var(--depart-color); }
   .choice-card.return .choice-label { color: var(--return-color); }
   .choice-desc {
-    font-size: 13px; color: var(--text-secondary);
+    font-size: 14px; color: var(--text-secondary);
     line-height: 1.5;
   }
 
@@ -210,7 +210,7 @@
   .form-input {
     width: 100%; padding: 14px 16px;
     border: 2px solid var(--border); border-radius: var(--radius-xs);
-    font-size: 18px; font-weight: 500;
+    font-size: 20px; font-weight: 500;
     background: var(--surface); color: var(--text);
     -webkit-appearance: none;
     transition: border-color .2s;
@@ -236,7 +236,7 @@
   .btn {
     width: 100%; padding: 18px;
     border: none; border-radius: var(--radius-sm);
-    font-size: 17px; font-weight: 700;
+    font-size: 19px; font-weight: 700;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 10px;
     transition: all .15s;
@@ -280,7 +280,7 @@
   .scan-icon { font-size: 40px; margin-bottom: 8px; }
   .scan-label { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
   .scan-value {
-    font-size: 24px; font-weight: 800;
+    font-size: 28px; font-weight: 800;
     color: var(--success);
     margin-top: 8px;
     word-break: break-all;
@@ -322,7 +322,7 @@
     padding-top: 2px;
   }
   .summary-value {
-    font-size: 16px; font-weight: 600;
+    font-size: 18px; font-weight: 600;
     word-break: break-all;
   }
 
@@ -487,6 +487,28 @@
     .choice-card { padding: 24px 16px; }
   }
 
+  /* iPad横向き (landscape) — スクロールなしで収める */
+  @media (min-width: 768px) and (orientation: landscape) {
+    .main { max-width: 600px; padding: 14px 20px; }
+    .home-title { padding-top: 10px; margin-bottom: 20px; }
+    .home-title h2 { font-size: 30px; }
+    .choice-card { padding: 24px 16px; }
+    .choice-icon { font-size: 44px; margin-bottom: 10px; }
+    .card { padding: 18px; margin-bottom: 12px; }
+    .card-title { margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    .form-input { padding: 12px 14px; }
+    .btn { padding: 14px; }
+    .scan-area { padding: 24px 16px; margin-bottom: 12px; }
+    .summary-row { padding: 8px 20px; }
+    .step-indicator { padding: 10px 20px; margin-bottom: 14px; }
+    .home-status { margin-top: 16px; padding: 12px; }
+    .completion-view { padding: 24px 20px; }
+    .completion-icon { font-size: 56px; margin-bottom: 12px; }
+    .completion-title { font-size: 22px; margin-bottom: 6px; }
+    .completion-sub { margin-bottom: 20px; }
+  }
+
   /* ── COMPLETION ANIMATION ── */
   .completion-view {
     text-align: center;
@@ -547,12 +569,12 @@
 
     <div class="choice-grid">
       <div class="choice-card depart" onclick="startDepart()">
-        <span class="choice-icon">🚗</span>
+        <span class="choice-icon">🚚</span>
         <div class="choice-label">出庫</div>
         <div class="choice-desc">敷地内へ入場<br>腕章・車両プレートを<br>受け取ります</div>
       </div>
       <div class="choice-card return" onclick="startReturn()">
-        <span class="choice-icon">🏠</span>
+        <span class="choice-icon">🏢</span>
         <div class="choice-label">帰庫</div>
         <div class="choice-desc">敷地外へ退場<br>腕章・車両プレートを<br>返却します</div>
       </div>
@@ -726,6 +748,10 @@
         <div class="summary-row">
           <div class="summary-label">出庫日時</div>
           <div class="summary-value" id="rcfmDepartTime"></div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">帰庫日時</div>
+          <div class="summary-value" id="rcfmReturnTime"></div>
         </div>
       </div>
     </div>
@@ -1139,6 +1165,7 @@ function returnGoToConfirm() {
   document.getElementById('rcfmCompany').textContent = rec.company;
   document.getElementById('rcfmName').textContent = rec.personName;
   document.getElementById('rcfmDepartTime').textContent = rec.departAt;
+  document.getElementById('rcfmReturnTime').textContent = formatDateTime(new Date());
   document.getElementById('rcfmArmband').textContent = state.armbandName || state.armbandCode;
   document.getElementById('rcfmVehicle').textContent = state.vehicleName || state.vehicleCode;
   showView('view-return-confirm');
@@ -1295,7 +1322,7 @@ function registerDepart() {
   records.push(record);
   saveRecords(records);
 
-  document.getElementById('completeIcon').textContent = '🚗';
+  document.getElementById('completeIcon').textContent = '🚚';
   document.getElementById('completeTitle').textContent = '出庫登録完了';
   document.getElementById('completeSub').textContent =
     state.company + ' ' + state.personName + ' 様\n安全に作業をお願いいたします。';
@@ -1354,7 +1381,7 @@ function registerReturn() {
 
   saveRecords(records);
 
-  document.getElementById('completeIcon').textContent = '🏠';
+  document.getElementById('completeIcon').textContent = '🏢';
   document.getElementById('completeTitle').textContent = '帰庫登録完了';
   document.getElementById('completeSub').textContent =
     (state.company || '') + ' ' + (state.personName || '') + ' 様\nお疲れ様でした。';
