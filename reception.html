@@ -657,6 +657,10 @@
           <div class="summary-label">車両プレート</div>
           <div class="summary-value" id="cfmVehicle"></div>
         </div>
+        <div class="summary-row">
+          <div class="summary-label">出庫日時</div>
+          <div class="summary-value" id="cfmDepartTime"></div>
+        </div>
       </div>
     </div>
 
@@ -1033,6 +1037,7 @@ function departGoToConfirm() {
   document.getElementById('cfmName').textContent = state.personName;
   document.getElementById('cfmArmband').textContent = state.armbandName || state.armbandCode;
   document.getElementById('cfmVehicle').textContent = state.vehicleName || state.vehicleCode;
+  document.getElementById('cfmDepartTime').textContent = formatDateTime(new Date());
   showView('view-depart-confirm');
   updateDepartSteps(4);
 }
@@ -1157,7 +1162,7 @@ function updateReturnSteps(current) {
 // SCANNING (IroatoReader CC)
 // ============================================================
 function scanArmband() {
-  scanCC('腕章のカメレオンコードをかざしてください', function(code) {
+  scanCC('腕章のカメレオンコードをかざしてください', SK_ARM_MASTER, function(code) {
     state.armbandCode = code;
     state.armbandName = lookupArmName(code);
     updateScanArea('scanAreaArmband', code, state.armbandName, '腕章');
@@ -1166,7 +1171,7 @@ function scanArmband() {
 }
 
 function scanVehicle() {
-  scanCC('車両プレートのカメレオンコードをかざしてください', function(code) {
+  scanCC('車両プレートのカメレオンコードをかざしてください', SK_VEH_MASTER, function(code) {
     state.vehicleCode = code;
     state.vehicleName = lookupVehName(code);
     updateScanArea('scanAreaVehicle', code, state.vehicleName, '車両プレート');
@@ -1175,7 +1180,7 @@ function scanVehicle() {
 }
 
 function scanReturnArmband() {
-  scanCC('返却する腕章のカメレオンコードをかざしてください', function(code) {
+  scanCC('返却する腕章のカメレオンコードをかざしてください', SK_ARM_MASTER, function(code) {
     state.armbandCode = code;
     state.armbandName = lookupArmName(code);
     // Find the active departure record with this armband
@@ -1194,7 +1199,7 @@ function scanReturnArmband() {
 }
 
 function scanReturnVehicle() {
-  scanCC('返却する車両プレートのカメレオンコードをかざしてください', function(code) {
+  scanCC('返却する車両プレートのカメレオンコードをかざしてください', SK_VEH_MASTER, function(code) {
     state.vehicleCode = code;
     state.vehicleName = lookupVehName(code);
     updateScanArea('scanAreaReturnVehicle', code, state.vehicleName, '車両プレート');
@@ -1202,17 +1207,32 @@ function scanReturnVehicle() {
   });
 }
 
-function scanCC(labelText, callback) {
+function scanCC(labelText, masterKey, callback) {
   try {
-    var reader = new IroatoReader('cc', {
+    // マスタデータからdisplayDataを生成（コードID→名称の表示マッピング）
+    var displayData = false;
+    try {
+      var master = JSON.parse(localStorage.getItem(masterKey) || '{}');
+      if (Object.keys(master).length > 0) {
+        displayData = master;
+      }
+    } catch(e) {}
+
+    var opts = {
       mode:           IroatoReader.single,
-      resolution:     IroatoReader.r1280x720,
+      resolution:     IroatoReader.r1920x1080,
       cameraPosition: IroatoReader.front,
+      analyzeLevel:   5,
       lineColor:      IroatoReader.green,
       lineWidth:      10,
       errLineColor:   IroatoReader.red,
       labelText:      labelText,
-    });
+    };
+    if (displayData) {
+      opts.displayData = displayData;
+    }
+
+    var reader = new IroatoReader('cc', opts);
     reader.read(function(res) {
       if (res && res.data && res.data.codes && res.data.codes.length > 0) {
         var code = res.data.codes[0].code;
