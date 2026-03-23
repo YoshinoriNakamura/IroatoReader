@@ -931,8 +931,26 @@ function getSettings() {
   try { return JSON.parse(localStorage.getItem(SK_SETTINGS) || '{}'); }
   catch { return {}; }
 }
-function getPassword() {
-  return localStorage.getItem(SK_PASSWORD) || 'admin1234';
+// デフォルトパスワード 'admin1234' のSHA-256ハッシュ
+const DEFAULT_PW_HASH = 'ac9689e2272427085e35b9d3e3e8bed88cb3434828b43b86fc0596cad4c6e270';
+
+async function hashPassword(pw) {
+  const data = new TextEncoder().encode(pw);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getPasswordHash() {
+  return localStorage.getItem(SK_PASSWORD) || DEFAULT_PW_HASH;
+}
+
+// 旧平文パスワードをハッシュに自動マイグレーション
+async function migratePassword() {
+  const stored = localStorage.getItem(SK_PASSWORD);
+  if (stored && stored.length < 64) {
+    const hash = await hashPassword(stored);
+    localStorage.setItem(SK_PASSWORD, hash);
+  }
 }
 
 // ============================================================
@@ -954,6 +972,7 @@ let state = {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  migratePassword();
   updateHomeStatus();
   updateClock();
   setInterval(updateClock, 1000);
@@ -1463,9 +1482,10 @@ function closeAdminAuth() {
   document.getElementById('adminAuthModal').classList.remove('open');
 }
 
-function adminLogin() {
+async function adminLogin() {
   const pw = document.getElementById('adminPwInput').value;
-  if (pw === getPassword()) {
+  const hash = await hashPassword(pw);
+  if (hash === getPasswordHash()) {
     closeAdminAuth();
     openAdminPanel();
   } else {
@@ -1714,12 +1734,13 @@ function saveSettings() {
   localStorage.setItem(SK_SETTINGS, JSON.stringify(s));
 }
 
-function changePassword() {
+async function changePassword() {
   const newPw = document.getElementById('settingNewPw').value.trim();
   if (!newPw || newPw.length < 4) {
     toast('パスワードは4文字以上で設定してください', 'error'); return;
   }
-  localStorage.setItem(SK_PASSWORD, newPw);
+  const hash = await hashPassword(newPw);
+  localStorage.setItem(SK_PASSWORD, hash);
   document.getElementById('settingNewPw').value = '';
   toast('パスワードを変更しました', 'success');
 }
