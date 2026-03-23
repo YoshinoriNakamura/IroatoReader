@@ -879,7 +879,7 @@
       <div class="admin-section">
         <div class="admin-section-title">メール設定</div>
         <div class="form-group">
-          <label class="form-label">送信先メールアドレス</label>
+          <label class="form-label">宛先メールアドレス</label>
           <input type="email" class="form-input" id="settingEmail" placeholder="example@company.co.jp"
             onchange="saveSettings()">
         </div>
@@ -1554,7 +1554,7 @@ function downloadCSV() {
   });
 
   const settings = getSettings();
-  const email = settings.email || '';
+  const email = settings.to || '';
   const filename = '出庫帰庫データ_' + from + '_' + to + '.csv';
   const subject = from + '〜' + to + ' 出庫帰庫データ';
 
@@ -1700,7 +1700,7 @@ function checkMasterStatuses() {
 // ============================================================
 function loadSettings() {
   const s = getSettings();
-  document.getElementById('settingEmail').value = s.email || '';
+  document.getElementById('settingEmail').value = s.to || '';
   document.getElementById('settingAutoSend').checked = !!s.autoSend;
   // Trigger toggle update
   document.getElementById('settingAutoSend').dispatchEvent(new Event('change'));
@@ -1708,7 +1708,7 @@ function loadSettings() {
 
 function saveSettings() {
   const s = {
-    email: document.getElementById('settingEmail').value.trim(),
+    to: document.getElementById('settingEmail').value.trim(),
     autoSend: document.getElementById('settingAutoSend').checked,
   };
   localStorage.setItem(SK_SETTINGS, JSON.stringify(s));
